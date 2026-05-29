@@ -40,7 +40,7 @@ void feed_handler_kernel(
 **`s_axilite` — configuration plane (off hot-path):**
 - `base_price` and `inv_tick` are mapped to AXI4-Lite slave registers.
 - The host writes these registers once before starting the kernel (via PCIe, Zynq PS, or a management CPU).
-- The host is responsible for extracting `base_price` and `tick_size` from the ITCH Stock Directory (`R`) message, computing `inv_tick = (1u << 16) / tick_size`, and writing both to the kernel. NASDAQ guarantees `R` messages precede any Add Order messages for that instrument.
+- The host is responsible for deriving `base_price` and `tick_size` — **neither is transmitted by NASDAQ in the ITCH Stock Directory (`R`) message**. `tick_size` is determined by exchange rules (NMS stocks ≥ $1.00 → tick = $0.01 = 100 in ITCH fixed-point). `base_price` is chosen by the operator (prior close or minimum expected price for the session, rounded down to the nearest tick). The host then computes `inv_tick = (1u << 16) / tick_size` and writes both values via `s_axilite`.
 - After the kernel is started, these values are read as constants by `parse_message`. They never change during operation. Passing `inv_tick` rather than `tick_size` means the kernel never divides — the hot path uses multiply + shift only (ADR-005).
 - AXI4-Lite register reads have no timing relationship to the hot-path clock cycles — they are sampled once and held in registers by HLS.
 

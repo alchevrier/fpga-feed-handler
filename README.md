@@ -1,6 +1,6 @@
 # fpga-feed-handler
 
-FPGA NASDAQ ITCH 5.0 feed handler implemented in Vitis HLS. Targeted 6-cycle deterministic parse-to-book-insert pipeline at 250 MHz (24 ns, pre-synthesis design target). Benchmarked against a C++ software baseline of 274 ns P99.9.
+FPGA NASDAQ ITCH 5.0 feed handler implemented in Vitis HLS. Synthesis-complete: achieved 11-cycle deterministic parse-to-book-insert pipeline at 250 MHz (44 ns, post-synthesis). Benchmarked against a C++ software baseline of 274 ns P99.9.
 
 ## Motivation
 
@@ -58,17 +58,44 @@ Cancel, execute, and delete message types exercise the same BRAM read-modify-wri
 
 > **Numbers are order-of-magnitude indicators, not precise measurements.** The C++ figures are from a specific machine (Intel i5-12400) under specific conditions; production hardware, NUMA topology, and kernel configuration will shift them. The FPGA figure is derived from an HLS synthesis cycle count at a target frequency — actual silicon latency depends on place-and-route, clock distribution, and board parasitics.
 
-| Metric | C++ baseline | FPGA (this project) |
-|---|---|---|
-| P50 latency | ~20 ns | 24 ns (6 cycles @ 250 MHz) — design target |
-| P99.9 latency | 274 ns | 24 ns — design target |
-| Latency distribution | Variable — P50 ≪ P99.9 | Fixed — P50 = P99.9 = P100 (if target confirmed) |
-| Dataset | 8,669 symbols, real ITCH 5.0 | Single instrument, synthetic |
-| Measurement | TSC per-message (real ITCH file) | HLS design target (synthesis not yet run) |
+| Metric | C++ baseline | FPGA (design target) | FPGA (actual synthesis) |
+|---|---|---|---|
+| P50 latency | ~20 ns | 24 ns (6 cycles @ 250 MHz) | 44 ns (11 cycles @ 250 MHz) |
+| P99.9 latency | 274 ns | 24 ns | 44 ns |
+| Latency distribution | Variable — P50 ≪ P99.9 | Fixed — P50 = P99.9 = P100 (if target confirmed) | Fixed — P50 = P99.9 = P100 (confirmed) |
+| Dataset | 8,669 symbols, real ITCH 5.0 | Single instrument, synthetic | Single instrument, synthetic |
+| Measurement | TSC per-message (real ITCH file) | HLS design target (pre-synthesis) | HLS csynth report (post-synthesis) |
 
 The C++ P50 of ~20 ns reflects the market's power law: the top symbols (AAPL, MSFT, SPY, …) generate the overwhelming majority of messages and their order books stay L1-resident. At the median, the C++ baseline is comparable to the FPGA target.
 
 The C++ P99.9 of 274 ns reflects illiquid symbols — books that have not been touched for seconds, evicted from L3, requiring a DRAM fetch (~80 ns round trip) on top of the compute cost. The FPGA has no cache hierarchy: every symbol, liquid or not, costs the same 2-cycle BRAM access. The FPGA does not improve median latency — it eliminates the tail.
+
+## Synthesis Results and Reports
+
+Full Vitis HLS synthesis reports are available in the repository at:
+
+  docs/reports/
+
+Key synthesis results (from kernel_csynth.rpt):
+
+- **Target device:** xa7a12t-cpg238-2I
+- **Tool version:** Vitis HLS 2025.2
+- **Clock period:** 4.00 ns (250 MHz)
+- **Achieved latency:** 11 cycles (44 ns)
+- **Initiation interval (II):** 11
+- **Pipeline type:** dataflow
+- **Resource utilization:**
+  - BRAM_18K: 1 (2%)
+  - DSP: 2 (5%)
+  - FF: 979 (6%)
+  - LUT: 852 (10%)
+
+For detailed breakdowns (including per-function reports), see:
+
+  docs/reports/kernel_csynth.rpt
+  docs/reports/handle_event_csynth.rpt
+  docs/reports/parse_add_event_csynth.rpt
+  docs/reports/update_snapshot_csynth.rpt
 
 ## Architecture Decision Records
 

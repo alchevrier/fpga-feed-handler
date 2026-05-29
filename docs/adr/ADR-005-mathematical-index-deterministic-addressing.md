@@ -83,7 +83,11 @@ The deeper principle is an FPGA design philosophy: **manipulate the signal, don'
 
 ## Pre-conditions and Trade-offs
 
-- **`base_price` and `inv_tick` must be known before the hot path starts.** The host reads the ITCH Stock Directory (`R`) message, computes `inv_tick = (1u << 16) / tick_size`, and writes both `base_price` and `inv_tick` to the kernel via `s_axilite` before starting the kernel. NASDAQ guarantees `R` messages precede any Add Orders for that instrument.
+- **`base_price` and `inv_tick` must be known before the hot path starts.** The host computes both and writes them via `s_axilite` before starting the kernel:
+  - `tick_size` is derived from exchange rules, not transmitted by NASDAQ. For NMS stocks ≥ $1.00, the minimum tick is $0.01 = **100** in ITCH fixed-point ($0.0001 units). The ITCH Stock Directory (`R`) message does not carry tick size or base price.
+  - `base_price` is chosen by the operator — typically the prior close or the lowest price expected for the instrument during the session, rounded down to the nearest tick.
+  - `inv_tick = (1u << 16) / tick_size` is then precomputed in software and written alongside `base_price`.
+  - NASDAQ guarantees `R` messages precede any Add Orders for that instrument, so the host has confirmed the instrument's identity before the feed reaches the kernel's `ap_fifo` input.
 - **`inv_tick` is an integer approximation of the reciprocal.** For tick sizes that are not powers of two, `(1u << 16) / tick_size` truncates. The host must verify that for the maximum expected price offset, `((price - base_price) * inv_tick) >> 16` maps to the correct integer index. For NASDAQ equity tick sizes (multiples of $0.0001 in fixed-point), this holds over the valid price range.
 - **`MAX_LEVELS` must be sized at synthesis time.** The address width is fixed in the bitstream. An instrument whose traded price range exceeds `MAX_LEVELS` tick steps cannot be supported without recompilation. For the single-instrument scope of this project (ADR-008), this is known and bounded.
 

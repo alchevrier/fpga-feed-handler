@@ -1,0 +1,106 @@
+# Ignore build output directory
+/build
+/export
+
+# Ignore object files and dependent files
+.o
+.d
+
+#Ignore logs folder and log files
+/logs
+.log
+
+#Ignore lock files
+.lock
+
+.bin
+.pdi
+.vitisWorkspace.json
+
+
+# Ignore all IDE metadata
+_ide/
+
+# Vitis HLS/IDE build and temp files
+/.Xil/
+/.Xilinx/
+/.vscode/
+/.settings/
+/.cproject
+/.project
+/.metadata/
+*.jou
+*.wdb
+*.str
+*.pb
+*.tcl
+*.xml
+*.json
+*.db
+/build/
+/build/reports/
+*.hls.tcl
+*.hls.xml
+*.hls.json
+*.hls.db
+*.hls.rpt
+*.hls.csv
+*.hls.html
+*.hls.tar.gz
+*.hls.tmp
+*.hls.bak
+*.hls.swp
+*.hls.swo
+*.hls.orig
+*.hls.rej
+*.hls.out
+*.hls.exe
+*.hls.o
+*.hls.obj
+*.hls.d
+*.hls.elf
+*.hls.bit
+*.hls.bin
+
+# Vitis HLS kernel build outputs
+/feed_handler/
+
+# Kernel build outputs
+/kernel/
+
+# Testbench outputs
+/tests/*.exe
+/tests/*.out
+/tests/*.o
+/tests/*.d
+/tests/*.log
+/tests/*.jou
+/tests/*.wdb
+/tests/*.str
+/tests/*.pb
+/tests/*.tcl
+/tests/*.xml
+/tests/*.json
+/tests/*.db
+/tests/*.rpt
+/tests/*.csv
+/tests/*.html
+/tests/*.zip
+/tests/*.tar.gz
+/tests/*.tmp
+/tests/*.bak
+/tests/*.swp
+/tests/*.swo
+/tests/*.orig
+/tests/*.rej
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor swap files
+*~

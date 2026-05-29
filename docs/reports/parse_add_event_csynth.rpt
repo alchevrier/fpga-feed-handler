@@ -1,0 +1,134 @@
+
+
+================================================================
+== Vitis HLS Report for 'parse_add_event'
+================================================================
+* Date:           Sat May 30 01:25:52 2026
+
+* Version:        2025.2 (Build 6295257 on Nov 14 2025)
+* Project:        kernel
+* Solution:       hls (Vivado IP Flow Target)
+* Product family: aartix7
+* Target device:  xa7a12t-cpg238-2I
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  4.00 ns|  2.920 ns|     1.08 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+    |   min   |   max   |    min   |    max   | min | max |   Type  |
+    +---------+---------+----------+----------+-----+-----+---------+
+    |        0|        0|      0 ns|      0 ns|    1|    1|      yes|
+    +---------+---------+----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        N/A
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++-----------------+---------+----+-------+------+-----+
+|       Name      | BRAM_18K| DSP|   FF  |  LUT | URAM|
++-----------------+---------+----+-------+------+-----+
+|DSP              |        -|   -|      -|     -|    -|
+|Expression       |        -|   -|      0|     2|    -|
+|FIFO             |        -|   -|      -|     -|    -|
+|Instance         |        -|   -|      -|     -|    -|
+|Memory           |        -|   -|      -|     -|    -|
+|Multiplexer      |        -|   -|      0|    27|    -|
+|Register         |        -|   -|      2|     -|    -|
++-----------------+---------+----+-------+------+-----+
+|Total            |        0|   0|      2|    29|    0|
++-----------------+---------+----+-------+------+-----+
+|Available        |       40|  40|  16000|  8000|    0|
++-----------------+---------+----+-------+------+-----+
+|Utilization (%)  |        0|   0|     ~0|    ~0|    0|
++-----------------+---------+----+-------+------+-----+
+
++ Detail: 
+    * Instance: 
+    N/A
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    +-----------------+----------+----+---+----+------------+------------+
+    |  Variable Name  | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +-----------------+----------+----+---+----+------------+------------+
+    |ap_block_state1  |        or|   0|  0|   2|           1|           1|
+    +-----------------+----------+----+---+----+------------+------------+
+    |Total            |          |   0|  0|   2|           1|           1|
+    +-----------------+----------+----+---+----+------------+------------+
+
+    * Multiplexer: 
+    +---------------+----+-----------+-----+-----------+
+    |      Name     | LUT| Input Size| Bits| Total Bits|
+    +---------------+----+-----------+-----+-----------+
+    |ap_done        |   9|          2|    1|          2|
+    |event_r_blk_n  |   9|          2|    1|          2|
+    |in_r_blk_n     |   9|          2|    1|          2|
+    +---------------+----+-----------+-----+-----------+
+    |Total          |  27|          6|    3|          6|
+    +---------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +-------------+---+----+-----+-----------+
+    |     Name    | FF| LUT| Bits| Const Bits|
+    +-------------+---+----+-----+-----------+
+    |ap_CS_fsm    |  1|   0|    1|          0|
+    |ap_done_reg  |  1|   0|    1|          0|
+    +-------------+---+----+-----+-----------+
+    |Total        |  2|   0|    2|          0|
+    +-------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++------------------------+-----+-----+------------+-----------------+--------------+
+|        RTL Ports       | Dir | Bits|  Protocol  |  Source Object  |    C Type    |
++------------------------+-----+-----+------------+-----------------+--------------+
+|ap_clk                  |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_rst                  |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_start                |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_done                 |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_continue             |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_idle                 |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_ready                |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|in_r_dout               |   in|  288|     ap_fifo|             in_r|       pointer|
+|in_r_empty_n            |   in|    1|     ap_fifo|             in_r|       pointer|
+|in_r_read               |  out|    1|     ap_fifo|             in_r|       pointer|
+|event_r_din             |  out|  168|     ap_fifo|          event_r|       pointer|
+|event_r_full_n          |   in|    1|     ap_fifo|          event_r|       pointer|
+|event_r_write           |  out|    1|     ap_fifo|          event_r|       pointer|
+|event_r_num_data_valid  |   in|    3|     ap_fifo|          event_r|       pointer|
+|event_r_fifo_cap        |   in|    3|     ap_fifo|          event_r|       pointer|
++------------------------+-----+-----+------------+-----------------+--------------+
+

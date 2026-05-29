@@ -1,0 +1,139 @@
+
+
+================================================================
+== Vitis HLS Report for 'update_snapshot'
+================================================================
+* Date:           Sat May 30 01:25:52 2026
+
+* Version:        2025.2 (Build 6295257 on Nov 14 2025)
+* Project:        kernel
+* Solution:       hls (Vivado IP Flow Target)
+* Product family: aartix7
+* Target device:  xa7a12t-cpg238-2I
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  4.00 ns|  3.640 ns|     1.08 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+    |   min   |   max   |    min   |    max   | min | max |   Type  |
+    +---------+---------+----------+----------+-----+-----+---------+
+    |        0|        0|      0 ns|      0 ns|    1|    1|      yes|
+    +---------+---------+----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        N/A
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++-----------------+---------+----+-------+------+-----+
+|       Name      | BRAM_18K| DSP|   FF  |  LUT | URAM|
++-----------------+---------+----+-------+------+-----+
+|DSP              |        -|   -|      -|     -|    -|
+|Expression       |        -|   -|      0|    95|    -|
+|FIFO             |        -|   -|      -|     -|    -|
+|Instance         |        -|   -|      -|     -|    -|
+|Memory           |        -|   -|      -|     -|    -|
+|Multiplexer      |        -|   -|      0|    40|    -|
+|Register         |        -|   -|    130|     -|    -|
++-----------------+---------+----+-------+------+-----+
+|Total            |        0|   0|    130|   135|    0|
++-----------------+---------+----+-------+------+-----+
+|Available        |       40|  40|  16000|  8000|    0|
++-----------------+---------+----+-------+------+-----+
+|Utilization (%)  |        0|   0|     ~0|     1|    0|
++-----------------+---------+----+-------+------+-----+
+
++ Detail: 
+    * Instance: 
+    N/A
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    +---------------------+----------+----+---+----+------------+------------+
+    |    Variable Name    | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +---------------------+----------+----+---+----+------------+------------+
+    |icmp_ln48_fu_75_p2   |      icmp|   0|  0|  15|           8|           7|
+    |icmp_ln49_fu_118_p2  |      icmp|   0|  0|  39|          32|          32|
+    |icmp_ln54_fu_95_p2   |      icmp|   0|  0|  39|          32|          32|
+    |ap_block_state1      |        or|   0|  0|   2|           1|           1|
+    +---------------------+----------+----+---+----+------------+------------+
+    |Total                |          |   0|  0|  95|          73|          72|
+    +---------------------+----------+----+---+----+------------+------------+
+
+    * Multiplexer: 
+    +-------------------+----+-----------+-----+-----------+
+    |        Name       | LUT| Input Size| Bits| Total Bits|
+    +-------------------+----+-----------+-----+-----------+
+    |ap_done            |   9|          2|    1|          2|
+    |levelUpdate_blk_n  |   9|          2|    1|          2|
+    |snap_o             |  13|          3|  128|        384|
+    |snap_o_preg        |   9|          2|  128|        256|
+    +-------------------+----+-----------+-----+-----------+
+    |Total              |  40|          9|  258|        644|
+    +-------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +-------------+-----+----+-----+-----------+
+    |     Name    |  FF | LUT| Bits| Const Bits|
+    +-------------+-----+----+-----+-----------+
+    |ap_CS_fsm    |    1|   0|    1|          0|
+    |ap_done_reg  |    1|   0|    1|          0|
+    |snap_o_preg  |  128|   0|  128|          0|
+    +-------------+-----+----+-----+-----------+
+    |Total        |  130|   0|  130|          0|
+    +-------------+-----+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++----------------------------+-----+-----+------------+-----------------+--------------+
+|          RTL Ports         | Dir | Bits|  Protocol  |  Source Object  |    C Type    |
++----------------------------+-----+-----+------------+-----------------+--------------+
+|ap_clk                      |   in|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_rst                      |   in|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_start                    |   in|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_done                     |  out|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_continue                 |   in|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_idle                     |  out|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|ap_ready                    |  out|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|snap_i                      |   in|  128|     ap_ovld|             snap|       pointer|
+|snap_o                      |  out|  128|     ap_ovld|             snap|       pointer|
+|snap_o_ap_vld               |  out|    1|     ap_ovld|             snap|       pointer|
+|levelUpdate_dout            |   in|   72|     ap_fifo|      levelUpdate|       pointer|
+|levelUpdate_empty_n         |   in|    1|     ap_fifo|      levelUpdate|       pointer|
+|levelUpdate_read            |  out|    1|     ap_fifo|      levelUpdate|       pointer|
+|levelUpdate_num_data_valid  |   in|    3|     ap_fifo|      levelUpdate|       pointer|
+|levelUpdate_fifo_cap        |   in|    3|     ap_fifo|      levelUpdate|       pointer|
++----------------------------+-----+-----+------------+-----------------+--------------+
+
