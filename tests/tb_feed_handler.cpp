@@ -8,8 +8,9 @@
 //   tick_size  = 100      — NMS stock >= $1.00 rule
 //   inv_tick   = (1 << 16) / 100 = 655
 
-static const ap_uint<32> BASE_PRICE = 1749700;
-static const ap_uint<32> INV_TICK   = 655;
+// Host-side precomputation — written once to s_axilite before feed starts
+static const ap_uint<16> INV_TICK    = 655;   // (1 << 16) / tick_size = 65536 / 100
+static const ap_uint<16> BASE_OFFSET = (ap_uint<16>)((1749700u * 655u) >> 16);  // = 17496
 
 // msg 2: side=B  qty=500   price=1758400 ($175.84)
 static const uint8_t asml_b_175_84[36] = {
@@ -74,7 +75,7 @@ int main() {
     for (int m = 0; m < 7; m++) {
         hls::stream<ap_uint<288>> in;
         in.write(pack_msg(msgs[m]));
-        kernel(in, snap, BASE_PRICE, INV_TICK);
+        kernel(in, snap, INV_TICK, BASE_OFFSET);
     }
 
     // Expected final snapshot after all 7 ASML messages:

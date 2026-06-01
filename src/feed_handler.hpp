@@ -24,7 +24,7 @@ struct MarketEvent {
 struct LevelUpdate {
     ap_uint<32> price;
     ap_uint<32> qty;
-    ap_uint<8>  side;      // which side was updated
+    ap_uint<8>  side;          // which side was updated
 };
 
 // Best bid/ask snapshot registers (UltraFast flip-flops, not BRAM)
@@ -37,5 +37,8 @@ struct BookSnapshot {
 
 // Top-level kernel declaration (defined in feed_handler.cpp)
 // in: full 36-byte ITCH Add Order message packed big-endian into 288 bits
+// inv_tick    = 65536 / tick_size                    — fits in ap_uint<16>
+// base_offset = (base_price * inv_tick) >> 16        — precomputed by host at config time
+// idx is computed in parse_add_event (pipelined II=1) — multiply absorbed into pipeline
 void kernel(hls::stream<ap_uint<288>>& in, BookSnapshot& snap,
-            const ap_uint<32> base_price, const ap_uint<32> inv_tick);
+            const ap_uint<16> inv_tick, const ap_uint<16> base_offset);
