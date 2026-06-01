@@ -1,6 +1,6 @@
 # fpga-feed-handler
 
-FPGA NASDAQ ITCH 5.0 feed handler implemented in Vitis HLS. RTL co-simulation verified: **9-cycle deterministic parse-to-book-insert pipeline at 250 MHz (36 ns)**. Benchmarked against a C++ software baseline of 274 ns P99.9 — a 7.6× reduction in tail latency with a fixed, distribution-free result.
+FPGA NASDAQ ITCH 5.0 feed handler implemented in Vitis HLS. RTL co-simulation verified: **13-cycle deterministic arbitrate-parse-book-insert pipeline at 250 MHz (52 ns)**. Benchmarked against a C++ software baseline of 274 ns P99.9 — a 5.3× reduction in tail latency with a fixed, distribution-free result.
 
 ## Motivation
 
@@ -16,18 +16,45 @@ An FPGA removes all three sources:
 ## Architecture
 
 ```
-ap_fifo (ITCH payload bytes)
-    │
-    ▼
-┌──────────────────────┐   hls::stream<MarketEvent>   ┌──────────────────┐   hls::stream<LevelUpdate>   ┌───────────────────┐
-│   parse_add_event    │ ────────────────────────────▶ │  handle_event    │ ──────────────────────────▶  │ update_snapshot   │
-│  7 cycles, II=1      │                               │  4 cycles, II=1  │                              │  0 cycles, II=1   │
-│  (DSP multiply       │                               │  (BRAM r/w,      │                              │  (register        │
-│   absorbed by II=1   │                               │   no multiply)   │                              │   compare/write)  │
-│   pipeline)          │                               └──────────────────┘                              └───────────────────┘
-└──────────────────────┘                                       │                                                   │
-                                                         AOS BRAM book                                   UltraFast registers
-                                                       (2-cycle read latency)                            (clock-edge atomic)
+ ap_fifo feed_a   ap_fifo feed_b
+        │                │
+        └───────┬─────────┘
+                ▼
+   ┌─────────────────────┐
+   │      arbitrate      │
+   │   1 cycle, II=1     │
+   │  (signal mux,       │
+   │   seq check,        │
+   │   pre-book)         │
+   └──────────┬──────────┘
+              │ hls::stream<ap_uint<288>>
+              ▼
+   ┌─────────────────────┐
+   │   parse_add_event   │
+   │   7 cycles, II=1    │
+   │  (DSP multiply      │
+   │   absorbed by II=1  │
+   │   pipeline)         │
+   └──────────┬──────────┘
+              │ hls::stream<MarketEvent>
+              ▼
+   ┌─────────────────────┐
+   │    handle_event     │
+   │   4 cycles, II=1    │
+   │  (BRAM r/w,         │
+   │   no multiply)      │
+   └──────────┬──────────┘
+              │ hls::stream<LevelUpdate>
+              ▼
+   ┌─────────────────────┐
+   │   update_snapshot   │
+   │   0 cycles, II=1    │
+   │  (register          │
+   │   compare/write)    │
+   └──────┬──────────────┘
+          │              │
+   AOS BRAM book    UltraFast registers
+ (2-cycle latency)  (clock-edge atomic)
 ```
 
 **CoSim-verified: 9 cycles @ 250 MHz = 36 ns.** Pipeline II=1 — one new message accepted per clock cycle.
@@ -57,17 +84,20 @@ HLS synthesis reports confirm II, latency, resource utilisation, and timing clos
 **Add Order only in this phase (ADR-008)**
 Cancel, execute, and delete message types exercise the same BRAM read-modify-write path with different arithmetic. They are deferred until the synthesis report confirms the target II and latency for the Add path.
 
+**Multi-feed arbitration at the signal level (ADR-010)**
+With two `ap_fifo` inputs, a dedicated `arbitrate` stage selects the winning message by sequence number or priority **before** `parse_add_event` is invoked — a 1-cycle combinatorial mux. On a CPU MPSC architecture, each feed is a producer thread and the validity check runs inside the book writer, after the message has already traversed the queue. The book can therefore hold an incorrect state for the duration of the starvation guard expiry on the correcting feed — an indeterminate window during which any generated order is based on wrong prices, constituting a MiFID II best execution breach. On FPGA, the book is never written before arbitration completes: the violation window has zero duration by construction. This makes FPGA arbitration a compliance requirement first and a performance advantage second.
+
 ## Benchmark
 
 > **Numbers are order-of-magnitude indicators, not precise measurements.** The C++ figures are from a specific machine (Intel i5-12400) under specific conditions; production hardware, NUMA topology, and kernel configuration will shift them. The FPGA figure is derived from an HLS synthesis cycle count at a target frequency — actual silicon latency depends on place-and-route, clock distribution, and board parasitics.
 
-| Metric | C++ baseline | FPGA (initial design target) | FPGA (CoSim verified) |
-|---|---|---|---|
-| P50 latency | ~20 ns | 24 ns (6 cycles @ 250 MHz) | **36 ns (9 cycles @ 250 MHz)** |
-| P99.9 latency | 274 ns | 24 ns | **36 ns** |
-| Latency distribution | Variable — P50 ≪ P99.9 | Fixed (if target confirmed) | **Fixed — P50 = P99.9 = P100 (RTL confirmed)** |
-| Dataset | 8,669 symbols, real ITCH 5.0 | Single instrument, synthetic | Single instrument, synthetic |
-| Measurement | TSC per-message (real ITCH file) | HLS design target (pre-synthesis) | RTL co-simulation (xsim, Verilog) |
+| Metric | C++ baseline | FPGA (initial design target) | FPGA (CoSim verified, single feed) | FPGA (CoSim verified, dual feed) |
+|---|---|---|---|---|
+| P50 latency | ~20 ns | 24 ns (6 cycles @ 250 MHz) | 36 ns (9 cycles @ 250 MHz) | **52 ns (13 cycles @ 250 MHz)** |
+| P99.9 latency | 274 ns | 24 ns | 36 ns | **52 ns** |
+| Latency distribution | Variable — P50 ≪ P99.9 | Fixed (if target confirmed) | Fixed — P50 = P99.9 = P100 | **Fixed — P50 = P99.9 = P100 (RTL confirmed)** |
+| Dataset | 8,669 symbols, real ITCH 5.0 | Single instrument, synthetic | Single instrument, synthetic | Single instrument, synthetic |
+| Measurement | TSC per-message (real ITCH file) | HLS design target (pre-synthesis) | RTL co-simulation (xsim, Verilog) | RTL co-simulation (xsim, Verilog) |
 
 The C++ P50 of ~20 ns reflects the market's power law: the top symbols (AAPL, MSFT, SPY, …) generate the overwhelming majority of messages and their order books stay L1-resident. At the median, the C++ baseline is comparable to the FPGA target.
 
@@ -84,18 +114,19 @@ Key results (synthesis + RTL co-simulation):
 - **Target device:** xa7a12t-cpg238-2I
 - **Tool version:** Vitis HLS 2025.2
 - **Clock period:** 4.00 ns (250 MHz)
-- **Kernel latency (CoSim, RTL):** 9 cycles (36 ns) ✅
-- **Kernel II (CoSim, RTL):** 12 cycles
+- **Kernel latency (CoSim, RTL):** 13 cycles (52 ns) ✅
+- **Kernel II (CoSim, RTL):** 16 cycles
 - **CoSim status:** PASS (Verilog/xsim)
 - **Per-stage breakdown:**
+    - `arbitrate`: 3 cycles, II=1 (static 64-bit seq counter: compare latency=1 + add latency=1 are the bottleneck)
     - `parse_add_event`: 7 cycles, II=1 (DSP multiply, latency absorbed)
     - `handle_event`: 4 cycles (BRAM read-modify-write, no DSP)
     - `update_snapshot`: 0 cycles, II=1 (register compare/write)
 - **Resource utilization:**
     - BRAM_18K: 1 (2%)
     - DSP: 2 (5%)
-    - FF: 1347 (8%)
-    - LUT: 758 (9%)
+    - FF: 3693 (23%)
+    - LUT: 1657 (20%)
 
 For detailed breakdowns (including per-function reports), see:
 
@@ -117,6 +148,8 @@ Full rationale for each design decision is in [`docs/adr/`](docs/adr/):
 - [ADR-007](docs/adr/ADR-007-hls-as-design-verifier.md) — HLS as design verifier
 - [ADR-008](docs/adr/ADR-008-add-only-scope.md) — Scope: ADD Order events only
 - [ADR-009](docs/adr/ADR-009-interface-partitioning-s-axilite-ap-fifo.md) — Interface partitioning: `s_axilite` for configuration, `ap_fifo` for the hot path
+- [ADR-010](docs/adr/ADR-010-multi-feed-arbitration-signal-vs-mpsc.md) — Multi-feed arbitration: hardware signal mux vs MPSC post-hoc validation
+- [ADR-011](docs/adr/ADR-011-single-vs-dual-feed-bitstream.md) — Single-feed vs dual-feed bitstream: arbitration cost +4 cycles / +16 ns (CoSim verified)
 
 ## Reference Implementation
 

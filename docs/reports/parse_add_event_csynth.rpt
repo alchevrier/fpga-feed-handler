@@ -3,7 +3,7 @@
 ================================================================
 == Vitis HLS Report for 'parse_add_event'
 ================================================================
-* Date:           Sat May 30 01:25:52 2026
+* Date:           Mon Jun  1 22:56:34 2026
 
 * Version:        2025.2 (Build 6295257 on Nov 14 2025)
 * Project:        kernel
@@ -20,17 +20,17 @@
     +--------+---------+----------+------------+
     |  Clock |  Target | Estimated| Uncertainty|
     +--------+---------+----------+------------+
-    |ap_clk  |  4.00 ns|  2.920 ns|     1.08 ns|
+    |ap_clk  |  4.00 ns|  3.281 ns|     1.08 ns|
     +--------+---------+----------+------------+
 
 + Latency: 
     * Summary: 
-    +---------+---------+----------+----------+-----+-----+---------+
-    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
-    |   min   |   max   |    min   |    max   | min | max |   Type  |
-    +---------+---------+----------+----------+-----+-----+---------+
-    |        0|        0|      0 ns|      0 ns|    1|    1|      yes|
-    +---------+---------+----------+----------+-----+-----+---------+
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max    | min | max |   Type  |
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |        7|        7|  28.000 ns|  28.000 ns|    1|    1|      yes|
+    +---------+---------+-----------+-----------+-----+-----+---------+
 
     + Detail: 
         * Instance: 
@@ -49,23 +49,29 @@
 |       Name      | BRAM_18K| DSP|   FF  |  LUT | URAM|
 +-----------------+---------+----+-------+------+-----+
 |DSP              |        -|   -|      -|     -|    -|
-|Expression       |        -|   -|      0|     2|    -|
+|Expression       |        -|   -|      0|    31|    -|
 |FIFO             |        -|   -|      -|     -|    -|
-|Instance         |        -|   -|      -|     -|    -|
+|Instance         |        -|   2|    215|     1|    -|
 |Memory           |        -|   -|      -|     -|    -|
-|Multiplexer      |        -|   -|      0|    27|    -|
-|Register         |        -|   -|      2|     -|    -|
+|Multiplexer      |        -|   -|      0|    54|    -|
+|Register         |        -|   -|    610|   192|    -|
 +-----------------+---------+----+-------+------+-----+
-|Total            |        0|   0|      2|    29|    0|
+|Total            |        0|   2|    825|   278|    0|
 +-----------------+---------+----+-------+------+-----+
 |Available        |       40|  40|  16000|  8000|    0|
 +-----------------+---------+----+-------+------+-----+
-|Utilization (%)  |        0|   0|     ~0|    ~0|    0|
+|Utilization (%)  |        0|   5|      5|     3|    0|
 +-----------------+---------+----+-------+------+-----+
 
 + Detail: 
     * Instance: 
-    N/A
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |         Instance        |        Module       | BRAM_18K| DSP|  FF | LUT| URAM|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |mul_32s_16ns_32_5_1_U13  |mul_32s_16ns_32_5_1  |        0|   2|  215|   1|    0|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |Total                    |                     |        0|   2|  215|   1|    0|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
 
     * DSP: 
     N/A
@@ -77,34 +83,64 @@
     N/A
 
     * Expression: 
-    +-----------------+----------+----+---+----+------------+------------+
-    |  Variable Name  | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
-    +-----------------+----------+----+---+----+------------+------------+
-    |ap_block_state1  |        or|   0|  0|   2|           1|           1|
-    +-----------------+----------+----+---+----+------------+------------+
-    |Total            |          |   0|  0|   2|           1|           1|
-    +-----------------+----------+----+---+----+------------+------------+
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |             Variable Name             | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |ev_idx_fu_155_p2                       |         -|   0|  0|  23|          16|          16|
+    |ap_block_pp0_stage0_01001_grp1         |        or|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001              |        or|   0|  0|   2|           1|           1|
+    |ap_block_state1_pp0_stage0_iter0_grp1  |        or|   0|  0|   2|           1|           1|
+    |ap_enable_pp0                          |       xor|   0|  0|   2|           1|           2|
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |Total                                  |          |   0|  0|  31|          20|          21|
+    +---------------------------------------+----------+----+---+----+------------+------------+
 
     * Multiplexer: 
-    +---------------+----+-----------+-----+-----------+
-    |      Name     | LUT| Input Size| Bits| Total Bits|
-    +---------------+----+-----------+-----+-----------+
-    |ap_done        |   9|          2|    1|          2|
-    |event_r_blk_n  |   9|          2|    1|          2|
-    |in_r_blk_n     |   9|          2|    1|          2|
-    +---------------+----+-----------+-----+-----------+
-    |Total          |  27|          6|    3|          6|
-    +---------------+----+-----------+-----+-----------+
+    +-------------------+----+-----------+-----+-----------+
+    |        Name       | LUT| Input Size| Bits| Total Bits|
+    +-------------------+----+-----------+-----+-----------+
+    |ap_done            |   9|          2|    1|          2|
+    |base_offset_blk_n  |   9|          2|    1|          2|
+    |event_r_blk_n      |   9|          2|    1|          2|
+    |in_r_blk_n         |   9|          2|    1|          2|
+    |inv_tick_blk_n     |   9|          2|    1|          2|
+    |real_start         |   9|          2|    1|          2|
+    +-------------------+----+-----------+-----+-----------+
+    |Total              |  54|         12|    6|         12|
+    +-------------------+----+-----------+-----+-----------+
 
     * Register: 
-    +-------------+---+----+-----+-----------+
-    |     Name    | FF| LUT| Bits| Const Bits|
-    +-------------+---+----+-----+-----------+
-    |ap_CS_fsm    |  1|   0|    1|          0|
-    |ap_done_reg  |  1|   0|    1|          0|
-    +-------------+---+----+-----+-----------+
-    |Total        |  2|   0|    2|          0|
-    +-------------+---+----+-----+-----------+
+    +-------------------------+----+----+-----+-----------+
+    |           Name          | FF | LUT| Bits| Const Bits|
+    +-------------------------+----+----+-----+-----------+
+    |ap_CS_fsm                |   1|   0|    1|          0|
+    |ap_done_reg              |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter1  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter2  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter3  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter4  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter5  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter6  |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter7  |   1|   0|    1|          0|
+    |base_offset_1_reg_170    |  16|   0|   16|          0|
+    |ev_idx_reg_216           |  16|   0|   16|          0|
+    |ev_price_reg_180         |  32|   0|   32|          0|
+    |inv_tick_1_reg_175       |  16|   0|   16|          0|
+    |start_once_reg           |   1|   0|    1|          0|
+    |tmp_1_reg_191            |   8|   0|    8|          0|
+    |tmp_2_reg_196            |  32|   0|   32|          0|
+    |tmp_3_reg_201            |  64|   0|   64|          0|
+    |tmp_reg_186              |  16|   0|   16|          0|
+    |trunc_ln_reg_211         |  16|   0|   16|          0|
+    |base_offset_1_reg_170    |  64|  32|   16|          0|
+    |ev_price_reg_180         |  64|  32|   32|          0|
+    |tmp_1_reg_191            |  64|  32|    8|          0|
+    |tmp_2_reg_196            |  64|  32|   32|          0|
+    |tmp_3_reg_201            |  64|  32|   64|          0|
+    |tmp_reg_186              |  64|  32|   16|          0|
+    +-------------------------+----+----+-----+-----------+
+    |Total                    | 610| 192|  394|          0|
+    +-------------------------+----+----+-----+-----------+
 
 
 
@@ -112,23 +148,38 @@
 == Interface
 ================================================================
 * Summary: 
-+------------------------+-----+-----+------------+-----------------+--------------+
-|        RTL Ports       | Dir | Bits|  Protocol  |  Source Object  |    C Type    |
-+------------------------+-----+-----+------------+-----------------+--------------+
-|ap_clk                  |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_rst                  |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_start                |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_done                 |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_continue             |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_idle                 |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|ap_ready                |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
-|in_r_dout               |   in|  288|     ap_fifo|             in_r|       pointer|
-|in_r_empty_n            |   in|    1|     ap_fifo|             in_r|       pointer|
-|in_r_read               |  out|    1|     ap_fifo|             in_r|       pointer|
-|event_r_din             |  out|  168|     ap_fifo|          event_r|       pointer|
-|event_r_full_n          |   in|    1|     ap_fifo|          event_r|       pointer|
-|event_r_write           |  out|    1|     ap_fifo|          event_r|       pointer|
-|event_r_num_data_valid  |   in|    3|     ap_fifo|          event_r|       pointer|
-|event_r_fifo_cap        |   in|    3|     ap_fifo|          event_r|       pointer|
-+------------------------+-----+-----+------------+-----------------+--------------+
++----------------------------+-----+-----+------------+-----------------+--------------+
+|          RTL Ports         | Dir | Bits|  Protocol  |  Source Object  |    C Type    |
++----------------------------+-----+-----+------------+-----------------+--------------+
+|ap_clk                      |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_rst                      |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_start                    |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|start_full_n                |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_done                     |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_continue                 |   in|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_idle                     |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|ap_ready                    |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|start_out                   |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|start_write                 |  out|    1|  ap_ctrl_hs|  parse_add_event|  return value|
+|base_offset_dout            |   in|   16|     ap_fifo|      base_offset|       pointer|
+|base_offset_empty_n         |   in|    1|     ap_fifo|      base_offset|       pointer|
+|base_offset_read            |  out|    1|     ap_fifo|      base_offset|       pointer|
+|base_offset_num_data_valid  |   in|    3|     ap_fifo|      base_offset|       pointer|
+|base_offset_fifo_cap        |   in|    3|     ap_fifo|      base_offset|       pointer|
+|inv_tick_dout               |   in|   16|     ap_fifo|         inv_tick|       pointer|
+|inv_tick_empty_n            |   in|    1|     ap_fifo|         inv_tick|       pointer|
+|inv_tick_read               |  out|    1|     ap_fifo|         inv_tick|       pointer|
+|inv_tick_num_data_valid     |   in|    3|     ap_fifo|         inv_tick|       pointer|
+|inv_tick_fifo_cap           |   in|    3|     ap_fifo|         inv_tick|       pointer|
+|in_r_dout                   |   in|  288|     ap_fifo|             in_r|       pointer|
+|in_r_empty_n                |   in|    1|     ap_fifo|             in_r|       pointer|
+|in_r_read                   |  out|    1|     ap_fifo|             in_r|       pointer|
+|in_r_num_data_valid         |   in|    3|     ap_fifo|             in_r|       pointer|
+|in_r_fifo_cap               |   in|    3|     ap_fifo|             in_r|       pointer|
+|event_r_din                 |  out|  168|     ap_fifo|          event_r|       pointer|
+|event_r_full_n              |   in|    1|     ap_fifo|          event_r|       pointer|
+|event_r_write               |  out|    1|     ap_fifo|          event_r|       pointer|
+|event_r_num_data_valid      |   in|   32|     ap_fifo|          event_r|       pointer|
+|event_r_fifo_cap            |   in|   32|     ap_fifo|          event_r|       pointer|
++----------------------------+-----+-----+------------+-----------------+--------------+
 

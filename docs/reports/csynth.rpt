@@ -4,7 +4,7 @@
 == Synthesis Summary Report of 'kernel'
 ================================================================
 + General Information: 
-    * Date:           Sat May 30 01:25:52 2026
+    * Date:           Mon Jun  1 22:56:34 2026
     * Version:        2025.2 (Build 6295257 on Nov 14 2025)
     * Project:        kernel
     * Solution:       hls (Vivado IP Flow Target)
@@ -13,16 +13,17 @@
     
 
 * Performance & Resource Estimates: 
-+--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+-----------+-----------+-----+
-|       Modules      |  Issue |               | Iteration|         | Trip |          |      Latency     |       |        |        |           |           |     |
-|       & Loops      |  Type  | Violation Type|  Latency | Interval| Count| Pipelined| (cycles)|  (ns)  | Slack |  BRAM  |   DSP  |     FF    |    LUT    | URAM|
-+--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+-----------+-----------+-----+
-|+ kernel*           |  Timing|              -|         -|       11|     -|  dataflow|       11|  44.000|  -0.72|  1 (2%)|  2 (5%)|   979 (6%)|  852 (10%)|    -|
-| + entry_proc       |       -|              -|         -|        0|     -|        no|        0|   0.000|   1.46|       -|       -|    3 (~0%)|   38 (~0%)|    -|
-| + parse_add_event  |       -|              -|         -|        1|     -|       yes|        0|   0.000|   0.00|       -|       -|    2 (~0%)|   29 (~0%)|    -|
-| + handle_event     |       -|              -|         -|       10|     -|        no|       10|  40.000|   0.00|  1 (2%)|  2 (5%)|   339 (2%)|   167 (2%)|    -|
-| + update_snapshot  |  Timing|              -|         -|        1|     -|       yes|        0|   0.000|  -0.72|       -|       -|  130 (~0%)|   135 (1%)|    -|
-+--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+-----------+-----------+-----+
++--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+------------+------------+-----+
+|       Modules      |  Issue |               | Iteration|         | Trip |          |      Latency     |       |        |        |            |            |     |
+|       & Loops      |  Type  | Violation Type|  Latency | Interval| Count| Pipelined| (cycles)|  (ns)  | Slack |  BRAM  |   DSP  |     FF     |     LUT    | URAM|
++--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+------------+------------+-----+
+|+ kernel*           |  Timing|              -|         -|        5|     -|  dataflow|       16|  71.328|  -1.54|  1 (2%)|  2 (5%)|  3693 (23%)|  1657 (20%)|    -|
+| + entry_proc       |       -|              -|         -|        0|     -|        no|        0|   0.000|   1.46|       -|       -|     3 (~0%)|    38 (~0%)|    -|
+| + arbitrate        |  Timing|              -|         -|        1|     -|       yes|        3|  13.374|  -1.54|       -|       -|  1975 (12%)|    498 (6%)|    -|
+| + parse_add_event  |  Timing|              -|         -|        1|     -|       yes|        7|  28.000|  -0.36|       -|  2 (5%)|    825 (5%)|    278 (3%)|    -|
+| + handle_event     |       -|              -|         -|        4|     -|        no|        4|  16.000|   0.00|  1 (2%)|       -|   118 (~0%)|     93 (1%)|    -|
+| + update_snapshot  |  Timing|              -|         -|        1|     -|       yes|        0|   0.000|  -0.72|       -|       -|   130 (~0%)|    135 (1%)|    -|
++--------------------+--------+---------------+----------+---------+------+----------+---------+--------+-------+--------+--------+------------+------------+-----+
     Name Prefix: '+' for module, 'o' for loop, '*' for dataflow
 
 
@@ -33,22 +34,25 @@
 +---------------+------------+---------------+--------+----------+
 | Interface     | Data Width | Address Width | Offset | Register |
 +---------------+------------+---------------+--------+----------+
-| s_axi_control | 32         | 5             | 16     | 0        |
+| s_axi_control | 32         | 6             | 16     | 0        |
 +---------------+------------+---------------+--------+----------+
 
 * S_AXILITE Registers
-+---------------+------------+--------+-------+--------+---------------------------+
-| Interface     | Register   | Offset | Width | Access | Description               |
-+---------------+------------+--------+-------+--------+---------------------------+
-| s_axi_control | base_price | 0x10   | 32    | W      | Data signal of base_price |
-| s_axi_control | inv_tick   | 0x18   | 32    | W      | Data signal of inv_tick   |
-+---------------+------------+--------+-------+--------+---------------------------+
++---------------+-------------+--------+-------+--------+----------------------------+
+| Interface     | Register    | Offset | Width | Access | Description                |
++---------------+-------------+--------+-------+--------+----------------------------+
+| s_axi_control | inv_tick    | 0x10   | 32    | W      | Data signal of inv_tick    |
+| s_axi_control | base_offset | 0x18   | 32    | W      | Data signal of base_offset |
+| s_axi_control | init_seq_1  | 0x20   | 32    | W      | Data signal of init_seq    |
+| s_axi_control | init_seq_2  | 0x24   | 32    | W      | Data signal of init_seq    |
++---------------+-------------+--------+-------+--------+----------------------------+
 
 * AP_FIFO
 +-----------+-----------+------------+
 | Interface | Direction | Data Width |
 +-----------+-----------+------------+
-| in_r      | in        | 288        |
+| feed_a    | in        | 352        |
+| feed_b    | in        | 352        |
 +-----------+-----------+------------+
 
 * Other Ports
@@ -73,85 +77,100 @@
 == SW I/O Information
 ================================================================
 * Top Function Arguments
-+------------+-----------+--------------------------+
-| Argument   | Direction | Datatype                 |
-+------------+-----------+--------------------------+
-| in         | in        | stream<ap_uint<288>, 0>& |
-| snap       | inout     | BookSnapshot&            |
-| base_price | in        | ap_uint<32> const        |
-| inv_tick   | in        | ap_uint<32> const        |
-+------------+-----------+--------------------------+
++-------------+-----------+--------------------------+
+| Argument    | Direction | Datatype                 |
++-------------+-----------+--------------------------+
+| feed_a      | in        | stream<ap_uint<352>, 0>& |
+| feed_b      | in        | stream<ap_uint<352>, 0>& |
+| snap        | inout     | BookSnapshot&            |
+| inv_tick    | in        | ap_uint<16> const        |
+| base_offset | in        | ap_uint<16> const        |
+| init_seq    | in        | ap_uint<64> const        |
++-------------+-----------+--------------------------+
 
 * SW-to-HW Mapping
-+------------+---------------+-----------+--------------------------------------+
-| Argument   | HW Interface  | HW Type   | HW Info                              |
-+------------+---------------+-----------+--------------------------------------+
-| in         | in_r          | interface |                                      |
-| snap       | snap_i        | port      |                                      |
-| snap       | snap_o        | port      |                                      |
-| snap       | snap_o_ap_vld | port      |                                      |
-| base_price | s_axi_control | register  | name=base_price offset=0x10 range=32 |
-| inv_tick   | s_axi_control | register  | name=inv_tick offset=0x18 range=32   |
-+------------+---------------+-----------+--------------------------------------+
++-------------+---------------+-----------+---------------------------------------+
+| Argument    | HW Interface  | HW Type   | HW Info                               |
++-------------+---------------+-----------+---------------------------------------+
+| feed_a      | feed_a        | interface |                                       |
+| feed_b      | feed_b        | interface |                                       |
+| snap        | snap_i        | port      |                                       |
+| snap        | snap_o        | port      |                                       |
+| snap        | snap_o_ap_vld | port      |                                       |
+| inv_tick    | s_axi_control | register  | name=inv_tick offset=0x10 range=32    |
+| base_offset | s_axi_control | register  | name=base_offset offset=0x18 range=32 |
+| init_seq    | s_axi_control | register  | name=init_seq_1 offset=0x20 range=32  |
+| init_seq    | s_axi_control | register  | name=init_seq_2 offset=0x24 range=32  |
++-------------+---------------+-----------+---------------------------------------+
 
 
 ================================================================
 == Bind Op Report
 ================================================================
-+--------------------------+-----+--------+-----------+-------+--------+---------+
-| Name                     | DSP | Pragma | Variable  | Op    | Impl   | Latency |
-+--------------------------+-----+--------+-----------+-------+--------+---------+
-| + kernel                 | 2   |        |           |       |        |         |
-|  + handle_event          | 2   |        |           |       |        |         |
-|    sub_ln32_fu_157_p2    |     |        | sub_ln32  | sub   | fabric | 0       |
-|    mul_24s_24s_24_5_1_U7 | 2   |        | mul_ln32  | mul   | auto   | 4       |
-|    add_ln36_fu_175_p2    |     |        | add_ln36  | add   | fabric | 0       |
-|  + update_snapshot       | 0   |        |           |       |        |         |
-|    icmp_ln48_fu_75_p2    |     |        | icmp_ln48 | seteq | auto   | 0       |
-|    icmp_ln54_fu_95_p2    |     |        | icmp_ln54 | setlt | auto   | 0       |
-|    icmp_ln49_fu_118_p2   |     |        | icmp_ln49 | setgt | auto   | 0       |
-+--------------------------+-----+--------+-----------+-------+--------+---------+
++----------------------------+-----+--------+-------------+-------+--------+---------+
+| Name                       | DSP | Pragma | Variable    | Op    | Impl   | Latency |
++----------------------------+-----+--------+-------------+-------+--------+---------+
+| + kernel                   | 2   |        |             |       |        |         |
+|  + arbitrate               | 0   |        |             |       |        |         |
+|    icmp_ln25_fu_165_p2     |     |        | icmp_ln25   | seteq | auto   | 0       |
+|    icmp_64ns_64ns_1_2_1_U5 |     |        | icmp_ln25_1 | seteq | auto   | 1       |
+|    add_ln27_1_fu_195_p2    |     |        | add_ln27_1  | add   | fabric | 0       |
+|    add_64ns_64ns_64_2_1_U6 |     |        | add_ln27    | add   | fabric | 1       |
+|  + parse_add_event         | 2   |        |             |       |        |         |
+|    mul_32s_16ns_32_5_1_U13 | 2   |        | mul_ln54    | mul   | auto   | 4       |
+|    ev_idx_fu_155_p2        |     |        | ev_idx      | sub   | fabric | 0       |
+|  + handle_event            | 0   |        |             |       |        |         |
+|    add_ln70_fu_127_p2      |     |        | add_ln70    | add   | fabric | 0       |
+|  + update_snapshot         | 0   |        |             |       |        |         |
+|    icmp_ln80_fu_75_p2      |     |        | icmp_ln80   | seteq | auto   | 0       |
+|    icmp_ln83_fu_95_p2      |     |        | icmp_ln83   | setlt | auto   | 0       |
+|    icmp_ln80_1_fu_118_p2   |     |        | icmp_ln80_1 | setgt | auto   | 0       |
++----------------------------+-----+--------+-------------+-------+--------+---------+
 
 
 ================================================================
 == Storage Report
 ================================================================
-+-------------------+--------------+-------------+------+------+--------+--------------+------+---------+------------------+
-| Name              | Usage        | Type        | BRAM | URAM | Pragma | Variable     | Impl | Latency | Bitwidth, Depth, |
-|                   |              |             |      |      |        |              |      |         | Banks            |
-+-------------------+--------------+-------------+------+------+--------+--------------+------+---------+------------------+
-| + kernel          |              |             | 1    | 0    |        |              |      |         |                  |
-|   control_s_axi_U | interface    | s_axilite   |      |      |        |              |      |         |                  |
-|   base_price_c_U  | fifo channel | scalar prop |      |      |        | base_price_c | srl  | 0       | 32, 3, 1         |
-|   inv_tick_c_U    | fifo channel | scalar prop |      |      |        | inv_tick_c   | srl  | 0       | 32, 3, 1         |
-|   event_r_U       | fifo channel | stream      |      |      |        | event_r      | srl  | 0       | 168, 2, 1        |
-|   levelUpdate_U   | fifo channel | stream      |      |      |        | levelUpdate  | srl  | 0       | 72, 2, 1         |
-|  + handle_event   |              |             | 1    | 0    |        |              |      |         |                  |
-|    levels_qty_U   | ram_s2p      |             | 1    |      | pragma | levels_qty   | auto | 1       | 32, 256, 1       |
-+-------------------+--------------+-------------+------+------+--------+--------------+------+---------+------------------+
++-------------------+--------------+-------------+------+------+--------+---------------+------+---------+------------------+
+| Name              | Usage        | Type        | BRAM | URAM | Pragma | Variable      | Impl | Latency | Bitwidth, Depth, |
+|                   |              |             |      |      |        |               |      |         | Banks            |
++-------------------+--------------+-------------+------+------+--------+---------------+------+---------+------------------+
+| + kernel          |              |             | 1    | 0    |        |               |      |         |                  |
+|   control_s_axi_U | interface    | s_axilite   |      |      |        |               |      |         |                  |
+|   inv_tick_c_U    | fifo channel | scalar prop |      |      |        | inv_tick_c    | srl  | 0       | 16, 3, 1         |
+|   base_offset_c_U | fifo channel | scalar prop |      |      |        | base_offset_c | srl  | 0       | 16, 3, 1         |
+|   in_r_U          | fifo channel | stream      |      |      |        | in_r          | srl  | 0       | 288, 2, 1        |
+|   event_r_U       | fifo channel | stream      |      |      |        | event_r       | srl  | 0       | 168, 2, 1        |
+|   levelUpdate_U   | fifo channel | stream      |      |      |        | levelUpdate   | srl  | 0       | 72, 2, 1         |
+|  + handle_event   |              |             | 1    | 0    |        |               |      |         |                  |
+|    levels_qty_U   | ram_s2p      |             | 1    |      | pragma | levels_qty    | auto | 1       | 32, 256, 1       |
++-------------------+--------------+-------------+------+------+--------+---------------+------+---------+------------------+
 
 
 ================================================================
 == Pragma Report
 ================================================================
 * Ignored Pragmas
-+-----------+---------------------+----------------------------------------+---------------------------------------------------------------------------+
-| Type      | Options             | Location                               | Messages                                                                  |
-+-----------+---------------------+----------------------------------------+---------------------------------------------------------------------------+
-| INTERFACE | ap_memory port=snap | in kernel (../src/feed_handler.cpp:68) | Unsupported interface port data type in '#pragma HLS interface ap_memory' |
-+-----------+---------------------+----------------------------------------+---------------------------------------------------------------------------+
++-----------+-----------------------------+----------------------------------------+---------------------------------------------------------------------------+
+| Type      | Options                     | Location                               | Messages                                                                  |
++-----------+-----------------------------+----------------------------------------+---------------------------------------------------------------------------+
+| INTERFACE | ap_memory port=snap depth=1 | in kernel (../src/feed_handler.cpp:99) | Unsupported interface port data type in '#pragma HLS interface ap_memory' |
++-----------+-----------------------------+----------------------------------------+---------------------------------------------------------------------------+
 
 * Valid Pragma Syntax
 +--------------+-----------------------------+-------------------------------------------------+
 | Type         | Options                     | Location                                        |
 +--------------+-----------------------------+-------------------------------------------------+
-| PIPELINE     | ii=1                        | in parse_add_event (../src/feed_handler.cpp:9)  |
-| BIND_STORAGE | variable=levels type=ram_2p | in handle_event (../src/feed_handler.cpp:29)    |
-| PIPELINE     | II = 1                      | in update_snapshot (../src/feed_handler.cpp:45) |
-| INTERFACE    | ap_fifo port=in             | in kernel (../src/feed_handler.cpp:67)          |
-| INTERFACE    | s_axilite port=base_price   | in kernel (../src/feed_handler.cpp:69)          |
-| INTERFACE    | s_axilite port=inv_tick     | in kernel (../src/feed_handler.cpp:70)          |
-| DATAFLOW     |                             | in kernel (../src/feed_handler.cpp:71)          |
+| PIPELINE     | ii=1                        | in arbitrate (../src/feed_handler.cpp:9)        |
+| PIPELINE     | ii=1                        | in parse_add_event (../src/feed_handler.cpp:45) |
+| BIND_STORAGE | variable=levels type=ram_2p | in handle_event (../src/feed_handler.cpp:64)    |
+| PIPELINE     | ii=1                        | in update_snapshot (../src/feed_handler.cpp:78) |
+| INTERFACE    | ap_fifo port=feed_a         | in kernel (../src/feed_handler.cpp:97)          |
+| INTERFACE    | ap_fifo port=feed_b         | in kernel (../src/feed_handler.cpp:98)          |
+| INTERFACE    | s_axilite port=inv_tick     | in kernel (../src/feed_handler.cpp:100)         |
+| INTERFACE    | s_axilite port=base_offset  | in kernel (../src/feed_handler.cpp:101)         |
+| INTERFACE    | s_axilite port=init_seq     | in kernel (../src/feed_handler.cpp:102)         |
+| DATAFLOW     |                             | in kernel (../src/feed_handler.cpp:103)         |
 +--------------+-----------------------------+-------------------------------------------------+
 
 

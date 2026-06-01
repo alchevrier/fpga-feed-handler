@@ -11,6 +11,7 @@
 // Host-side precomputation — written once to s_axilite before feed starts
 static const ap_uint<16> INV_TICK    = 655;   // (1 << 16) / tick_size = 65536 / 100
 static const ap_uint<16> BASE_OFFSET = (ap_uint<16>)((1749700u * 655u) >> 16);  // = 17496
+static const ap_uint<64> INIT_SEQ    = 1;     // MOLDUDP64 sessions start at seq=1, never 0
 
 // msg 2: side=B  qty=500   price=1758400 ($175.84)
 static const uint8_t asml_b_175_84[36] = {
@@ -60,11 +61,13 @@ static const uint8_t* msgs[7] = {
     asml_s_176_12, asml_s_176_15, asml_s_176_17
 };
 
-static ap_uint<288> pack_msg(const uint8_t* msg) {
-    ap_uint<288> word = 0;
+static ap_uint<352> pack_msg(const uint8_t* msg, ap_uint<64> seq) {
+    // bits [351:288] = MOLDUDP64 sequence number (prepended by host DMA)
+    // bits [287:0]   = ITCH payload, byte 0 at bits [287:280]
+    ap_uint<288> payload = 0;
     for (int i = 0; i < 36; i++)
-        word = (word << 8) | msg[i];  // byte 0 ends up at bits [287:280]
-    return word;
+        payload = (payload << 8) | msg[i];
+    return (ap_uint<352>(seq) << 288) | ap_uint<352>(payload);
 }
 
 int main() {
@@ -72,10 +75,15 @@ int main() {
     BookSnapshot snap = {0, 0, 0xFFFFFFFF, 0};
     int pass = 1;
 
+    // All 7 messages routed through feed_a (primary feed).
+    // feed_b is empty each invocation — models secondary feed idle.
+    // arbitrate() seeds expected_seq from INIT_SEQ on the first call (static seeded flag),
+    // then owns the counter for all subsequent calls without re-seeding.
     for (int m = 0; m < 7; m++) {
-        hls::stream<ap_uint<288>> in;
-        in.write(pack_msg(msgs[m]));
-        kernel(in, snap, INV_TICK, BASE_OFFSET);
+        hls::stream<ap_uint<352>> feed_a;
+        hls::stream<ap_uint<352>> feed_b;  // empty — secondary feed idle this cycle
+        feed_a.write(pack_msg(msgs[m], INIT_SEQ + m));  // seq 1..7
+        kernel(feed_a, feed_b, snap, INV_TICK, BASE_OFFSET, INIT_SEQ);
     }
 
     // Expected final snapshot after all 7 ASML messages:

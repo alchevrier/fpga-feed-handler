@@ -3,7 +3,7 @@
 ================================================================
 == Vitis HLS Report for 'handle_event'
 ================================================================
-* Date:           Sat May 30 01:25:52 2026
+* Date:           Mon Jun  1 22:56:34 2026
 
 * Version:        2025.2 (Build 6295257 on Nov 14 2025)
 * Project:        kernel
@@ -29,7 +29,7 @@
     |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
     |   min   |   max   |    min    |    max    | min | max |   Type  |
     +---------+---------+-----------+-----------+-----+-----+---------+
-    |       10|       10|  40.000 ns|  40.000 ns|   10|   10|       no|
+    |        4|        4|  16.000 ns|  16.000 ns|    4|    4|       no|
     +---------+---------+-----------+-----------+-----+-----+---------+
 
     + Detail: 
@@ -49,29 +49,23 @@
 |       Name      | BRAM_18K| DSP|   FF  |  LUT | URAM|
 +-----------------+---------+----+-------+------+-----+
 |DSP              |        -|   -|      -|     -|    -|
-|Expression       |        -|   -|      0|    72|    -|
+|Expression       |        -|   -|      0|    41|    -|
 |FIFO             |        -|   -|      -|     -|    -|
-|Instance         |        -|   2|    119|     1|    -|
+|Instance         |        -|   -|      -|     -|    -|
 |Memory           |        1|   -|      0|     0|    0|
-|Multiplexer      |        -|   -|      0|    94|    -|
-|Register         |        -|   -|    220|     -|    -|
+|Multiplexer      |        -|   -|      0|    52|    -|
+|Register         |        -|   -|    118|     -|    -|
 +-----------------+---------+----+-------+------+-----+
-|Total            |        1|   2|    339|   167|    0|
+|Total            |        1|   0|    118|    93|    0|
 +-----------------+---------+----+-------+------+-----+
 |Available        |       40|  40|  16000|  8000|    0|
 +-----------------+---------+----+-------+------+-----+
-|Utilization (%)  |        2|   5|      2|     2|    0|
+|Utilization (%)  |        2|   0|     ~0|     1|    0|
 +-----------------+---------+----+-------+------+-----+
 
 + Detail: 
     * Instance: 
-    +-----------------------+--------------------+---------+----+-----+----+-----+
-    |        Instance       |       Module       | BRAM_18K| DSP|  FF | LUT| URAM|
-    +-----------------------+--------------------+---------+----+-----+----+-----+
-    |mul_24s_24s_24_5_1_U7  |mul_24s_24s_24_5_1  |        0|   2|  119|   1|    0|
-    +-----------------------+--------------------+---------+----+-----+----+-----+
-    |Total                  |                    |        0|   2|  119|   1|    0|
-    +-----------------------+--------------------+---------+----+-----+----+-----+
+    N/A
 
     * DSP: 
     N/A
@@ -92,44 +86,37 @@
     +--------------------+----------+----+---+----+------------+------------+
     |    Variable Name   | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
     +--------------------+----------+----+---+----+------------+------------+
-    |add_ln36_fu_175_p2  |         +|   0|  0|  39|          32|          32|
-    |sub_ln32_fu_157_p2  |         -|   0|  0|  31|          24|          24|
+    |add_ln70_fu_127_p2  |         +|   0|  0|  39|          32|          32|
     |ap_block_state1     |        or|   0|  0|   2|           1|           1|
     +--------------------+----------+----+---+----+------------+------------+
-    |Total               |          |   0|  0|  72|          57|          57|
+    |Total               |          |   0|  0|  41|          33|          33|
     +--------------------+----------+----+---+----+------------+------------+
 
     * Multiplexer: 
     +-------------------+----+-----------+-----+-----------+
     |        Name       | LUT| Input Size| Bits| Total Bits|
     +-------------------+----+-----------+-----+-----------+
-    |ap_NS_fsm          |  49|         12|    1|         12|
+    |ap_NS_fsm          |  25|          6|    1|          6|
     |ap_done            |   9|          2|    1|          2|
-    |base_price_blk_n   |   9|          2|    1|          2|
     |event_r_blk_n      |   9|          2|    1|          2|
-    |inv_tick_blk_n     |   9|          2|    1|          2|
     |levelUpdate_blk_n  |   9|          2|    1|          2|
     +-------------------+----+-----------+-----+-----------+
-    |Total              |  94|         22|    6|         22|
+    |Total              |  52|         12|    4|         12|
     +-------------------+----+-----------+-----+-----------+
 
     * Register: 
     +-------------------------+----+----+-----+-----------+
     |           Name          | FF | LUT| Bits| Const Bits|
     +-------------------------+----+----+-----+-----------+
-    |add_ln36_reg_220         |  32|   0|   32|          0|
-    |ap_CS_fsm                |  11|   0|   11|          0|
+    |add_ln70_reg_152         |  32|   0|   32|          0|
+    |ap_CS_fsm                |   5|   0|    5|          0|
     |ap_done_reg              |   1|   0|    1|          0|
-    |ev_qty_reg_179           |  32|   0|   32|          0|
-    |idx_reg_204              |   8|   0|    8|          0|
-    |levels_qty_addr_reg_209  |   8|   0|    8|          0|
-    |levels_qty_load_reg_215  |  32|   0|   32|          0|
-    |sub_ln32_reg_199         |  24|   0|   24|          0|
-    |trunc_ln32_1_reg_189     |  24|   0|   24|          0|
-    |trunc_ln32_2_reg_194     |  24|   0|   24|          0|
-    |trunc_ln32_reg_184       |  24|   0|   24|          0|
+    |ev_qty_reg_131           |  32|   0|   32|          0|
+    |levels_qty_addr_reg_141  |   8|   0|    8|          0|
+    |levels_qty_load_reg_147  |  32|   0|   32|          0|
+    |tmp_reg_136              |   8|   0|    8|          0|
     +-------------------------+----+----+-----+-----------+
-    |Total                    | 220|   0|  220|          0|
+    |Total                    | 118|   0|  118|          0|
     +-------------------------+----+----+-----+-----------+
 
 
@@ -158,15 +145,5 @@
 |levelUpdate_write           |  out|    1|     ap_fifo|   levelUpdate|       pointer|
 |levelUpdate_num_data_valid  |   in|    3|     ap_fifo|   levelUpdate|       pointer|
 |levelUpdate_fifo_cap        |   in|    3|     ap_fifo|   levelUpdate|       pointer|
-|base_price_dout             |   in|   32|     ap_fifo|    base_price|       pointer|
-|base_price_empty_n          |   in|    1|     ap_fifo|    base_price|       pointer|
-|base_price_read             |  out|    1|     ap_fifo|    base_price|       pointer|
-|base_price_num_data_valid   |   in|    3|     ap_fifo|    base_price|       pointer|
-|base_price_fifo_cap         |   in|    3|     ap_fifo|    base_price|       pointer|
-|inv_tick_dout               |   in|   32|     ap_fifo|      inv_tick|       pointer|
-|inv_tick_empty_n            |   in|    1|     ap_fifo|      inv_tick|       pointer|
-|inv_tick_read               |  out|    1|     ap_fifo|      inv_tick|       pointer|
-|inv_tick_num_data_valid     |   in|    3|     ap_fifo|      inv_tick|       pointer|
-|inv_tick_fifo_cap           |   in|    3|     ap_fifo|      inv_tick|       pointer|
 +----------------------------+-----+-----+------------+--------------+--------------+
 

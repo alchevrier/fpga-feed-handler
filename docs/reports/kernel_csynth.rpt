@@ -3,7 +3,7 @@
 ================================================================
 == Vitis HLS Report for 'kernel'
 ================================================================
-* Date:           Sat May 30 01:25:52 2026
+* Date:           Mon Jun  1 22:56:34 2026
 
 * Version:        2025.2 (Build 6295257 on Nov 14 2025)
 * Project:        kernel
@@ -20,7 +20,7 @@
     +--------+---------+----------+------------+
     |  Clock |  Target | Estimated| Uncertainty|
     +--------+---------+----------+------------+
-    |ap_clk  |  4.00 ns|  3.640 ns|     1.08 ns|
+    |ap_clk  |  4.00 ns|  4.458 ns|     1.08 ns|
     +--------+---------+----------+------------+
 
 + Latency: 
@@ -29,7 +29,7 @@
     |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline |
     |   min   |   max   |    min    |    max    | min | max |   Type   |
     +---------+---------+-----------+-----------+-----+-----+----------+
-    |       11|       11|  44.000 ns|  44.000 ns|   11|   11|  dataflow|
+    |       16|       16|  71.328 ns|  71.328 ns|    5|    5|  dataflow|
     +---------+---------+-----------+-----------+-----+-----+----------+
 
     + Detail: 
@@ -39,8 +39,9 @@
         |      Instance      |      Module     |   min   |   max   |    min    |    max    | min | max |   Type  |
         +--------------------+-----------------+---------+---------+-----------+-----------+-----+-----+---------+
         |entry_proc_U0       |entry_proc       |        0|        0|       0 ns|       0 ns|    0|    0|       no|
-        |parse_add_event_U0  |parse_add_event  |        0|        0|       0 ns|       0 ns|    1|    1|      yes|
-        |handle_event_U0     |handle_event     |       10|       10|  40.000 ns|  40.000 ns|   10|   10|       no|
+        |arbitrate_U0        |arbitrate        |        3|        3|  13.374 ns|  13.374 ns|    1|    1|      yes|
+        |parse_add_event_U0  |parse_add_event  |        7|        7|  28.000 ns|  28.000 ns|    1|    1|      yes|
+        |handle_event_U0     |handle_event     |        4|        4|  16.000 ns|  16.000 ns|    4|    4|       no|
         |update_snapshot_U0  |update_snapshot  |        0|        0|       0 ns|       0 ns|    1|    1|      yes|
         +--------------------+-----------------+---------+---------+-----------+-----------+-----+-----+---------+
 
@@ -58,32 +59,33 @@
 +-----------------+---------+----+-------+------+-----+
 |DSP              |        -|   -|      -|     -|    -|
 |Expression       |        -|   -|      0|    16|    -|
-|FIFO             |        -|   -|    396|   272|    -|
-|Instance         |        1|   2|    580|   537|    0|
+|FIFO             |        -|   -|    495|   340|    -|
+|Instance         |        1|   2|   3195|  1274|    0|
 |Memory           |        -|   -|      -|     -|    -|
 |Multiplexer      |        -|   -|      0|    27|    -|
 |Register         |        -|   -|      3|     -|    -|
 +-----------------+---------+----+-------+------+-----+
-|Total            |        1|   2|    979|   852|    0|
+|Total            |        1|   2|   3693|  1657|    0|
 +-----------------+---------+----+-------+------+-----+
 |Available        |       40|  40|  16000|  8000|    0|
 +-----------------+---------+----+-------+------+-----+
-|Utilization (%)  |        2|   5|      6|    10|    0|
+|Utilization (%)  |        2|   5|     23|    20|    0|
 +-----------------+---------+----+-------+------+-----+
 
 + Detail: 
     * Instance: 
-    +--------------------+-----------------+---------+----+-----+-----+-----+
-    |      Instance      |      Module     | BRAM_18K| DSP|  FF | LUT | URAM|
-    +--------------------+-----------------+---------+----+-----+-----+-----+
-    |control_s_axi_U     |control_s_axi    |        0|   0|  106|  168|    0|
-    |entry_proc_U0       |entry_proc       |        0|   0|    3|   38|    0|
-    |handle_event_U0     |handle_event     |        1|   2|  339|  167|    0|
-    |parse_add_event_U0  |parse_add_event  |        0|   0|    2|   29|    0|
-    |update_snapshot_U0  |update_snapshot  |        0|   0|  130|  135|    0|
-    +--------------------+-----------------+---------+----+-----+-----+-----+
-    |Total               |                 |        1|   2|  580|  537|    0|
-    +--------------------+-----------------+---------+----+-----+-----+-----+
+    +--------------------+-----------------+---------+----+------+-----+-----+
+    |      Instance      |      Module     | BRAM_18K| DSP|  FF  | LUT | URAM|
+    +--------------------+-----------------+---------+----+------+-----+-----+
+    |arbitrate_U0        |arbitrate        |        0|   0|  1975|  498|    0|
+    |control_s_axi_U     |control_s_axi    |        0|   0|   144|  232|    0|
+    |entry_proc_U0       |entry_proc       |        0|   0|     3|   38|    0|
+    |handle_event_U0     |handle_event     |        1|   0|   118|   93|    0|
+    |parse_add_event_U0  |parse_add_event  |        0|   2|   825|  278|    0|
+    |update_snapshot_U0  |update_snapshot  |        0|   0|   130|  135|    0|
+    +--------------------+-----------------+---------+----+------+-----+-----+
+    |Total               |                 |        1|   2|  3195| 1274|    0|
+    +--------------------+-----------------+---------+----+------+-----+-----+
 
     * DSP: 
     N/A
@@ -92,16 +94,17 @@
     N/A
 
     * FIFO: 
-    +----------------+---------+----+----+-----+------+-----+---------+
-    |      Name      | BRAM_18K| FF | LUT| URAM| Depth| Bits| Size:D*B|
-    +----------------+---------+----+----+-----+------+-----+---------+
-    |base_price_c_U  |        0|  99|   0|    -|     3|   32|       96|
-    |event_r_U       |        0|  99|   0|    -|     2|  168|      336|
-    |inv_tick_c_U    |        0|  99|   0|    -|     3|   32|       96|
-    |levelUpdate_U   |        0|  99|   0|    -|     2|   72|      144|
-    +----------------+---------+----+----+-----+------+-----+---------+
-    |Total           |        0| 396|   0|    0|    10|  304|      672|
-    +----------------+---------+----+----+-----+------+-----+---------+
+    +-----------------+---------+----+----+-----+------+-----+---------+
+    |       Name      | BRAM_18K| FF | LUT| URAM| Depth| Bits| Size:D*B|
+    +-----------------+---------+----+----+-----+------+-----+---------+
+    |base_offset_c_U  |        0|  99|   0|    -|     3|   16|       48|
+    |event_r_U        |        0|  99|   0|    -|     2|  168|      336|
+    |in_r_U           |        0|  99|   0|    -|     2|  288|      576|
+    |inv_tick_c_U     |        0|  99|   0|    -|     3|   16|       48|
+    |levelUpdate_U    |        0|  99|   0|    -|     2|   72|      144|
+    +-----------------+---------+----+----+-----+------+-----+---------+
+    |Total            |        0| 495|   0|    0|    12|  560|     1152|
+    +-----------------+---------+----+----+-----+------+-----+---------+
 
     * Expression: 
     +-------------------------------------+----------+----+---+----+------------+------------+
@@ -109,11 +112,11 @@
     +-------------------------------------+----------+----+---+----+------------+------------+
     |ap_idle                              |       and|   0|  0|   2|           1|           1|
     |ap_sync_ready                        |       and|   0|  0|   2|           1|           1|
+    |arbitrate_U0_ap_start                |       and|   0|  0|   2|           1|           1|
     |entry_proc_U0_ap_start               |       and|   0|  0|   2|           1|           1|
-    |parse_add_event_U0_ap_start          |       and|   0|  0|   2|           1|           1|
     |update_snapshot_U0_ap_start          |       and|   0|  0|   2|           1|           1|
+    |ap_sync_arbitrate_U0_ap_ready        |        or|   0|  0|   2|           1|           1|
     |ap_sync_entry_proc_U0_ap_ready       |        or|   0|  0|   2|           1|           1|
-    |ap_sync_parse_add_event_U0_ap_ready  |        or|   0|  0|   2|           1|           1|
     |ap_sync_update_snapshot_U0_ap_ready  |        or|   0|  0|   2|           1|           1|
     +-------------------------------------+----------+----+---+----+------------+------------+
     |Total                                |          |   0|  0|  16|           8|           8|
@@ -123,8 +126,8 @@
     +-----------------------------------------+----+-----------+-----+-----------+
     |                   Name                  | LUT| Input Size| Bits| Total Bits|
     +-----------------------------------------+----+-----------+-----+-----------+
+    |ap_sync_reg_arbitrate_U0_ap_ready        |   9|          2|    1|          2|
     |ap_sync_reg_entry_proc_U0_ap_ready       |   9|          2|    1|          2|
-    |ap_sync_reg_parse_add_event_U0_ap_ready  |   9|          2|    1|          2|
     |ap_sync_reg_update_snapshot_U0_ap_ready  |   9|          2|    1|          2|
     +-----------------------------------------+----+-----------+-----+-----------+
     |Total                                    |  27|          6|    3|          6|
@@ -134,8 +137,8 @@
     +-----------------------------------------+---+----+-----+-----------+
     |                   Name                  | FF| LUT| Bits| Const Bits|
     +-----------------------------------------+---+----+-----+-----------+
+    |ap_sync_reg_arbitrate_U0_ap_ready        |  1|   0|    1|          0|
     |ap_sync_reg_entry_proc_U0_ap_ready       |  1|   0|    1|          0|
-    |ap_sync_reg_parse_add_event_U0_ap_ready  |  1|   0|    1|          0|
     |ap_sync_reg_update_snapshot_U0_ap_ready  |  1|   0|    1|          0|
     +-----------------------------------------+---+----+-----+-----------+
     |Total                                    |  3|   0|    3|          0|
@@ -152,14 +155,14 @@
 +-----------------------+-----+-----+------------+--------------+--------------+
 |s_axi_control_AWVALID  |   in|    1|       s_axi|       control|        scalar|
 |s_axi_control_AWREADY  |  out|    1|       s_axi|       control|        scalar|
-|s_axi_control_AWADDR   |   in|    5|       s_axi|       control|        scalar|
+|s_axi_control_AWADDR   |   in|    6|       s_axi|       control|        scalar|
 |s_axi_control_WVALID   |   in|    1|       s_axi|       control|        scalar|
 |s_axi_control_WREADY   |  out|    1|       s_axi|       control|        scalar|
 |s_axi_control_WDATA    |   in|   32|       s_axi|       control|        scalar|
 |s_axi_control_WSTRB    |   in|    4|       s_axi|       control|        scalar|
 |s_axi_control_ARVALID  |   in|    1|       s_axi|       control|        scalar|
 |s_axi_control_ARREADY  |  out|    1|       s_axi|       control|        scalar|
-|s_axi_control_ARADDR   |   in|    5|       s_axi|       control|        scalar|
+|s_axi_control_ARADDR   |   in|    6|       s_axi|       control|        scalar|
 |s_axi_control_RVALID   |  out|    1|       s_axi|       control|        scalar|
 |s_axi_control_RREADY   |   in|    1|       s_axi|       control|        scalar|
 |s_axi_control_RDATA    |  out|   32|       s_axi|       control|        scalar|
@@ -173,9 +176,12 @@
 |ap_done                |  out|    1|  ap_ctrl_hs|        kernel|  return value|
 |ap_ready               |  out|    1|  ap_ctrl_hs|        kernel|  return value|
 |ap_idle                |  out|    1|  ap_ctrl_hs|        kernel|  return value|
-|in_r_dout              |   in|  288|     ap_fifo|          in_r|       pointer|
-|in_r_empty_n           |   in|    1|     ap_fifo|          in_r|       pointer|
-|in_r_read              |  out|    1|     ap_fifo|          in_r|       pointer|
+|feed_a_dout            |   in|  352|     ap_fifo|        feed_a|       pointer|
+|feed_a_empty_n         |   in|    1|     ap_fifo|        feed_a|       pointer|
+|feed_a_read            |  out|    1|     ap_fifo|        feed_a|       pointer|
+|feed_b_dout            |   in|  352|     ap_fifo|        feed_b|       pointer|
+|feed_b_empty_n         |   in|    1|     ap_fifo|        feed_b|       pointer|
+|feed_b_read            |  out|    1|     ap_fifo|        feed_b|       pointer|
 |snap_i                 |   in|  128|     ap_ovld|          snap|       pointer|
 |snap_o                 |  out|  128|     ap_ovld|          snap|       pointer|
 |snap_o_ap_vld          |  out|    1|     ap_ovld|          snap|       pointer|

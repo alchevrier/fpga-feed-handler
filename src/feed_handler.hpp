@@ -36,9 +36,15 @@ struct BookSnapshot {
 };
 
 // Top-level kernel declaration (defined in feed_handler.cpp)
-// in: full 36-byte ITCH Add Order message packed big-endian into 288 bits
+// feed_a / feed_b: ap_uint<352> — bits [351:288] = MOLDUDP64 seq, bits [287:0] = ITCH payload
 // inv_tick    = 65536 / tick_size                    — fits in ap_uint<16>
 // base_offset = (base_price * inv_tick) >> 16        — precomputed by host at config time
+// init_seq    = starting MOLDUDP64 sequence number   — 1 at session open, arbitrary on gap recovery
 // idx is computed in parse_add_event (pipelined II=1) — multiply absorbed into pipeline
-void kernel(hls::stream<ap_uint<288>>& in, BookSnapshot& snap,
-            const ap_uint<16> inv_tick, const ap_uint<16> base_offset);
+void kernel(hls::stream<ap_uint<352>>& feed_a,
+  hls::stream<ap_uint<352>>& feed_b,
+  BookSnapshot&              snap,
+  const ap_uint<16>          inv_tick,
+  const ap_uint<16>          base_offset,
+  const ap_uint<64>          init_seq
+);

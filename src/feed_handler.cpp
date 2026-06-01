@@ -1,5 +1,39 @@
 #include "feed_handler.hpp"
 
+void arbitrate(
+    hls::stream<ap_uint<352>>& feed_a,   // bits [351:288] = MOLDUDP64 seq,
+    hls::stream<ap_uint<352>>& feed_b,   // bits [287:0]   = ITCH payload
+    hls::stream<ap_uint<288>>& out,      // ITCH payload of admitted message
+    const ap_uint<64>          init_seq  // host-supplied seq at session/gap start
+) {
+#pragma HLS PIPELINE II=1
+
+    // Combinatorial circuit — truth table:
+    //   feed.empty() | seq == expected_seq | output
+    //       1        |          X          |  no write (feed idle)
+    //       0        |          0          |  no write (gap/duplicate discarded)
+    //       0        |          1          |  write to out (message admitted)
+    // Inputs: FIFO-empty flag, seq comparator. Output: downstream FIFO write enable.
+    static ap_uint<64> expected_seq = 0;
+    static bool        seeded       = false;
+    if (!seeded) { expected_seq = init_seq; seeded = true; }
+    auto admit = [&](hls::stream<ap_uint<352>>& feed) -> bool {
+        if (feed.empty()) return false;
+        ap_uint<352> raw = feed.read();
+        ap_uint<64>  seq = raw.range(351, 288);
+        ap_uint<288> msg = raw.range(287,   0);
+        if (seq == expected_seq) {
+            out.write(msg);           // admitted — downstream pipeline invoked
+            ++expected_seq;
+            return true;
+        }
+        return false;                 // gap or duplicate — discarded, book untouched
+    };
+
+    if (!admit(feed_a))
+        admit(feed_b);
+}
+
 // msg is packed big-endian: byte 0 at bits [287:280], byte 35 at bits [7:0]
 // byte k => msg.range(287 - 8*k, 280 - 8*k)
 void parse_add_event(
@@ -53,23 +87,29 @@ void update_snapshot(
 }
 
 void kernel(
-  hls::stream<ap_uint<288>>& in,
+  hls::stream<ap_uint<352>>& feed_a,
+  hls::stream<ap_uint<352>>& feed_b,
   BookSnapshot&              snap,
   const ap_uint<16>          inv_tick,
-  const ap_uint<16>          base_offset
+  const ap_uint<16>          base_offset,
+  const ap_uint<64>          init_seq
 ) {
-  #pragma HLS INTERFACE ap_fifo   port=in
-  #pragma HLS INTERFACE ap_memory port=snap
+  #pragma HLS INTERFACE ap_fifo   port=feed_a
+  #pragma HLS INTERFACE ap_fifo   port=feed_b
+  #pragma HLS INTERFACE ap_memory port=snap depth=1
   #pragma HLS INTERFACE s_axilite port=inv_tick
   #pragma HLS INTERFACE s_axilite port=base_offset
+  #pragma HLS INTERFACE s_axilite port=init_seq
   #pragma HLS DATAFLOW
 
+  hls::stream<ap_uint<288>> in;
   hls::stream<MarketEvent> event;
   hls::stream<LevelUpdate> levelUpdate;
 
   const ap_uint<16> inv_tick_reg    = inv_tick;
   const ap_uint<16> base_offset_reg = base_offset;
 
+  arbitrate(feed_a, feed_b, in, init_seq);
   parse_add_event(in, event, inv_tick_reg, base_offset_reg);
   handle_event(event, levelUpdate);
   update_snapshot(snap, levelUpdate);
