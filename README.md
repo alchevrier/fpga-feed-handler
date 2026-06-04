@@ -15,51 +15,78 @@ An FPGA removes all three sources:
 
 ## Architecture
 
+**Current implementation (CoSim verified, dual-feed HEAD):** `arbitrate → parse_add_event → handle_event → update_snapshot` — 13 cycles, II=16, 52 ns @ 250 MHz. The II=16 bottleneck is `handle_event`: the BRAM read-modify-write creates a RAW hazard that prevents pipelining (ADR-013).
+
+**Intended architecture** shown below. Deferred stages are annotated with their ADR. Target: II=1 throughout (250M messages/s theoretical maximum), with an early-exit filter before the book stages and a parallel toxicity signal alongside the snapshot output.
+
 ```
- ap_fifo feed_a   ap_fifo feed_b
-        │                │
-        └───────┬─────────┘
-                ▼
-   ┌─────────────────────┐
-   │      arbitrate      │
-   │   1 cycle, II=1     │
-   │  (signal mux,       │
-   │   seq check,        │
-   │   pre-book)         │
-   └──────────┬──────────┘
-              │ hls::stream<ap_uint<288>>
-              ▼
-   ┌─────────────────────┐
-   │   parse_add_event   │
-   │   7 cycles, II=1    │
-   │  (DSP multiply      │
-   │   absorbed by II=1  │
-   │   pipeline)         │
-   └──────────┬──────────┘
-              │ hls::stream<MarketEvent>
-              ▼
-   ┌─────────────────────┐
-   │    handle_event     │
-   │   4 cycles, II=1    │
-   │  (BRAM r/w,         │
-   │   no multiply)      │
-   └──────────┬──────────┘
-              │ hls::stream<LevelUpdate>
-              ▼
-   ┌─────────────────────┐
-   │   update_snapshot   │
-   │   0 cycles, II=1    │
-   │  (register          │
-   │   compare/write)    │
-   └──────┬──────────────┘
-          │              │
-   AOS BRAM book    UltraFast registers
- (2-cycle latency)  (clock-edge atomic)
+ ap_fifo[0]      ap_fifo[1]      ...  ap_fifo[N-1]
+      │                │                    │         N=2 current (ADR-011)
+      └────────────────┴────────────────────┘         N=4 multi-venue (ADR-014)
+                       │
+                       ▼
+       ┌─────────────────────────────────┐
+       │       protocol_dispatch         │  1 cycle, II=1
+       │  feed slot → protocol fork      │  slot assignment configured via s_axilite
+       │  no payload parsing required    │  ITCH 5.0 | FIX | OUCH | ...
+       └───────┬─────────────────────────┘
+               │
+               │  (this repo: ITCH 5.0 pipeline only)
+               ▼
+       ┌─────────────────────────────────┐
+       │           arbitrate             │  3 cycles, II=1
+       │   MOLDUDP64 sequence select     │  each protocol owns its own arbitration
+       │   per-feed seq counters         │  primary preferred over secondary
+       └───────────────┬─────────────────┘
+                       │ ap_uint<288>
+                       ▼
+       ┌─────────────────────────────────┐
+       │         filter_event            │  1 cycle, II=1         [ADR-016]
+       │  instrument membership check    │  drops unrecognised stock_locate
+       │  price sanity: base ≤ p < max  │  drops out-of-range prices
+       │  quantity floor: qty ≥ min_qty  │  drops sub-minimum qty
+       └───────────────┬─────────────────┘
+                       │ ap_uint<288>  (validated messages only)
+                       ▼
+       ┌─────────────────────────────────┐
+       │         route_by_type           │  1 cycle, II=1         [ADR-008 scope]
+       │  msg_type field → parse slot    │  A → parse_add_event
+       │  (current: A only)             │  X/D/U → parse_cancel/delete/replace
+       └───────────────┬─────────────────┘
+                       │ per-type hls::stream<ap_uint<288>>
+                       ▼
+       ┌─────────────────────────────────┐
+       │       parse_add_event           │  7 cycles, II=1        (Add Order only)
+       │  idx = (price − base)×inv_tick  │  DSP multiply; depth hidden by II=1
+       │  parse_cancel/delete/replace    │  separate functions, different field
+       │  added in roadmap step 5        │  layouts and arithmetic per type
+       └───────────────┬─────────────────┘
+                       │ hls::stream<MarketEvent>
+             ┌─────────┴─────────────┐
+             ▼                       ▼
+  ┌──────────────────────┐  ┌─────────────────────────┐
+  │  store_buffer_write  │  │    toxicity_monitor     │  [ADR-015]
+  │  1 cycle, II=1       │  │  add/cancel ratio per   │
+  │  register ring head  │  │  instrument per window  │
+  │  [ADR-012, ADR-013]  │  └────────────┬────────────┘
+  └──────────┬───────────┘               │
+             │                    ToxicitySnapshot
+             ▼                    (s_axilite readable)
+  ┌──────────────────────┐
+  │    update_snapshot   │  1 cycle, II=1
+  │    register write    │  best bid/ask
+  └──────────┬───────────┘
+             │
+       BookSnapshot
+     (UltraFast registers,
+      clock-edge atomic)
+
+  Cold path [ADR-012]:
+    store buffer ──▶ BRAM writer ──▶ AOS BRAM  (full order book depth)
+    flushed every 250K cycles  (1 ms @ 250 MHz, configurable via s_axilite)
 ```
 
-**CoSim-verified: 9 cycles @ 250 MHz = 36 ns.** Pipeline II=1 — one new message accepted per clock cycle.
-
-The DSP multiply (`price × inv_tick`) for index computation costs 7 cycles of pipeline depth in `parse_add_event`, but since that stage is `II=1`, its latency is fully hidden — a new message enters every cycle while previous messages flow through the DSP pipeline.
+**Target latency (intended architecture, pre-synthesis estimate):** ~11 cycles @ 250 MHz = ~44 ns. The DSP multiply in `parse_add_event` costs 7 cycles of pipeline depth but is fully hidden by II=1 — a new message enters every cycle while previous messages flow through the DSP stages. With all stages at II=1, a burst of N messages is processed in N cycles regardless of burst length.
 
 ### Key design decisions
 
@@ -82,10 +109,33 @@ The kernel ingests raw ITCH bytes on the `ap_fifo` data plane. Configuration par
 HLS synthesis reports confirm II, latency, resource utilisation, and timing closure at 250 MHz. These are the questions a C++ functional model cannot answer. RTL co-simulation provides cycle-accurate verification without a hand-written SystemVerilog testbench.
 
 **Add Order only in this phase (ADR-008)**
-Cancel, execute, and delete message types exercise the same BRAM read-modify-write path with different arithmetic. They are deferred until the synthesis report confirms the target II and latency for the Add path.
+Each ITCH message type has a distinct field layout and therefore requires its own parse function — `parse_add_event` is specific to type `A`. Cancel (`X`), Delete (`D`), and Replace (`U`) messages have different offsets, different fields, and different arithmetic in `handle_event`. A `route_by_type` dispatch stage will sit between `filter_event` and the per-type parse functions once those types are implemented (roadmap step 5). The BRAM read-modify-write path in `handle_event` is shared, but the parse stage is not.
 
 **Multi-feed arbitration at the signal level (ADR-010)**
 With two `ap_fifo` inputs, a dedicated `arbitrate` stage selects the winning message by sequence number or priority **before** `parse_add_event` is invoked — a 1-cycle combinatorial mux. On a CPU MPSC architecture, each feed is a producer thread and the validity check runs inside the book writer, after the message has already traversed the queue. The book can therefore hold an incorrect state for the duration of the starvation guard expiry on the correcting feed — an indeterminate window during which any generated order is based on wrong prices, constituting a MiFID II best execution breach. On FPGA, the book is never written before arbitration completes: the violation window has zero duration by construction. This makes FPGA arbitration a compliance requirement first and a performance advantage second.
+
+**Early-exit event filter before the pipeline (ADR-016)** *(deferred)*
+A dedicated `filter_event` stage between `arbitrate` and `parse_add_event` drops messages on three ordered checks: instrument membership (unrecognised `stock_locate` not in the routing table), price sanity (price outside `[base_price, base_price + max_ticks × tick_size]`), and quantity floor. Checks are applied cheapest-first and short-circuit on first failure — all three complete within the same 1-cycle clock period (one LUTRAM read + two combinatorial comparators). Each drop path increments a saturating diagnostic counter readable via `s_axilite`. `max_ticks_above_base` is calibrated per instrument slot by the ML batch job from historical intraday range (ATR × safety multiplier) — a static global default would hard-drop valid orders on volatile symbols. Without the filter, the pipeline has an adversarial exposure: a competing firm can post a single-lot order at an extreme price, shift the computed mid, and cause the matching engine to post at a wrong level — a standard quote manipulation technique that the quantity floor and price sanity checks directly close. Messages that fail any check are consumed from the stream but not forwarded; downstream stages see only validated messages and can remove their own bounds checks.
+
+**Register store buffer replaces direct BRAM write on the hot path (ADR-012, ADR-013)** *(deferred)*
+The `handle_event` BRAM read-modify-write creates a RAW (read-after-write) hazard that makes pipelining impossible and sets the kernel II to 16. Moving BRAM writes to a cold-path flush thread eliminates the hazard: the hot path becomes a single register write into a small SPSC ring (4–8 flip-flop slots), which is II=1. The BRAM writer thread drains the ring every 250K cycles (1 ms at 250 MHz, configurable) into the full-depth AOS BRAM. The hot-path snapshot registers remain the source of truth for the matching engine; BRAM holds the historical depth record. With BRAM off the hot path, the full pipeline achieves II=1 — 250M messages/second theoretical throughput.
+
+**Parallel toxicity monitor (ADR-015)** *(deferred, requires X/D/U message types)*
+A `toxicity_monitor` task branches off the `MarketEvent` stream in parallel with `store_buffer_write`. It maintains per-instrument add/cancel counters over a configurable rolling window, computes a fixed-point cancellation ratio using a DSP reciprocal multiply (same pattern as `inv_tick`), and writes a `ToxicitySnapshot` register readable via `s_axilite`. The matching engine reads `BookSnapshot` and `ToxicitySnapshot` simultaneously — both are updated at the same pipeline clock cycle — and can reduce aggression or halt order generation when the cancellation ratio crosses a pre-configured threshold.
+
+**Multi-instrument routing via LUTRAM (ADR-014)** *(deferred)*
+Extends `arbitrate` from N=2 feeds to N=4 (two venues × primary/secondary) and adds a LUTRAM routing table keyed by `stock_locate`. At startup the host writes the routing table via `s_axilite` (stock_locate → pipeline slot index); `filter_event` uses the same table for instrument membership checks. Each pipeline slot is an independent instance of the post-filter stages with its own snapshot registers and store buffer. Slot count K is a compile-time constant; the xa7a12t has headroom for K=4–8 given current resource utilisation.
+
+## Roadmap
+
+| # | Step | ADR | Status | Notes |
+|---|------|-----|--------|-------|
+| 1 | Register store buffer + cold-path BRAM writer | [ADR-012](docs/adr/ADR-012-hot-path-register-store-buffer.md) | Deferred | Builds the SPSC ring and flush thread; prerequisite for step 2 |
+| 2 | Remove BRAM from hot path → II=1 | [ADR-013](docs/adr/ADR-013-bram-off-hot-path-ii-equals-1.md) | Deferred | Depends on step 1; drops kernel II from 16 to 1 (250M msg/s) |
+| 3 | Early-exit event filter | [ADR-016](docs/adr/ADR-016-early-exit-event-filter.md) | Deferred | Independent of steps 1–2 but added once the core pipeline is stable |
+| 4 | Multi-feed bus widening + per-instrument routing | [ADR-014](docs/adr/ADR-014-multi-feed-bus-widening-per-instrument-routing.md) | Deferred | N=4 feeds, LUTRAM routing table, K independent pipeline slots |
+| 5 | Cancel / Delete / Replace message types (X, D, U) | [ADR-008](docs/adr/ADR-008-add-only-scope.md) | Deferred | Prerequisite gate for step 6 |
+| 6 | Market toxicity detection | [ADR-015](docs/adr/ADR-015-market-toxicity-detection.md) | Deferred | Depends on step 5 (needs X/D counters); parallel branch off MarketEvent stream |
 
 ## Benchmark
 
@@ -150,6 +200,11 @@ Full rationale for each design decision is in [`docs/adr/`](docs/adr/):
 - [ADR-009](docs/adr/ADR-009-interface-partitioning-s-axilite-ap-fifo.md) — Interface partitioning: `s_axilite` for configuration, `ap_fifo` for the hot path
 - [ADR-010](docs/adr/ADR-010-multi-feed-arbitration-signal-vs-mpsc.md) — Multi-feed arbitration: hardware signal mux vs MPSC post-hoc validation
 - [ADR-011](docs/adr/ADR-011-single-vs-dual-feed-bitstream.md) — Single-feed vs dual-feed bitstream: arbitration cost +4 cycles / +16 ns (CoSim verified)
+- [ADR-012](docs/adr/ADR-012-hot-path-register-store-buffer.md) — Hot-path write coalescing: register store buffer + cold-path BRAM writer *(deferred)*
+- [ADR-013](docs/adr/ADR-013-bram-off-hot-path-ii-equals-1.md) — BRAM off hot path: achieving II=1 on the full pipeline *(deferred)*
+- [ADR-014](docs/adr/ADR-014-multi-feed-bus-widening-per-instrument-routing.md) — Multi-feed bus widening and per-instrument pipeline routing *(deferred)*
+- [ADR-015](docs/adr/ADR-015-market-toxicity-detection.md) — Market toxicity detection: quote cancellation ratio in hardware *(deferred, requires X/D/U)*
+- [ADR-016](docs/adr/ADR-016-early-exit-event-filter.md) — Early-exit event filter: drop irrelevant or anomalous messages before the pipeline *(deferred)*
 
 ## Reference Implementation
 
