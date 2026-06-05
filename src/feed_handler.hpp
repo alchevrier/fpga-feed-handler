@@ -25,15 +25,35 @@ struct BookSnapshot {
     ap_uint<32> ask_qty;
 };
 
+// Filter configuration (written once at session open via s_axilite).
+// Instrument membership (ADR-014 LUTRAM routing table) is deferred.
+// base_price — session-open reference price (ITCH fixed-point, same units as price field)
+//              host reconfigures via s_axilite if drop_count_below_base spikes
+// price_max  — hard upper bound: drop if price > price_max
+//              precomputed by host: base_price + max_ticks * tick_size
+//              calibrated per instrument from historical ATR; same pattern as base_offset/inv_tick
+// min_qty    — quantity floor: drop if qty < min_qty; 0 = disabled
+struct FilterConfig {
+    ap_uint<32> base_price;
+    ap_uint<32> price_max;  // precomputed: base_price + max_ticks * tick_size
+    ap_uint<32> min_qty;
+};
+
 // Top-level kernel declaration (defined in feed_handler.cpp)
 // feed_a / feed_b: ap_uint<352> — bits [351:288] = MOLDUDP64 seq, bits [287:0] = ITCH payload
 // inv_tick    = 65536 / tick_size                    — fits in ap_uint<16>
 // base_offset = (base_price * inv_tick) >> 16        — precomputed by host at config time
 // init_seq    = starting MOLDUDP64 sequence number   — 1 at session open, arbitrary on gap recovery
+// filt_base   = FilterConfig::base_price             — s_axilite scalar, host writes at session open
+// filt_max    = FilterConfig::price_max              — precomputed: base_price + max_ticks*tick_size
+// filt_minqty = FilterConfig::min_qty                — 0 = disabled
 void kernel(hls::stream<ap_uint<352>>& feed_a,
   hls::stream<ap_uint<352>>& feed_b,
   BookSnapshot&              snap,
   const ap_uint<16>          inv_tick,
   const ap_uint<16>          base_offset,
-  const ap_uint<64>          init_seq
+  const ap_uint<64>          init_seq,
+  const ap_uint<32>          filt_base,
+  const ap_uint<32>          filt_max,
+  const ap_uint<32>          filt_minqty
 );

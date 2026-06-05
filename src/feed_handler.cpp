@@ -32,6 +32,51 @@ void arbitrate(
     }
 }
 
+// filter_event: price sanity + quantity floor. II=1, always reads.
+// Drops messages that would corrupt book state or degrade signal quality.
+// Conditionally writes to out — downstream parse_add_event blocks on ap_fifo
+// until a valid message arrives (correct DATAFLOW back-pressure behaviour).
+//
+// Check 1 — Price upper bound (hard drop):
+//   price > base_price + max_ticks * tick_size → BRAM index overflow
+// Check 2 — Price lower bound (diagnostic drop):
+//   price < base_price → index underflow; drop_count_below_base signals stale config
+// Check 3 — Quantity floor (hard drop):
+//   qty < min_qty → sub-minimum noise order; corrupts best-price signal
+//
+// Instrument membership (ADR-014 LUTRAM) deferred — added with routing table.
+static void filter_event(
+    hls::stream<ap_uint<288>>& in,
+    hls::stream<ap_uint<288>>& out,
+    const ap_uint<32>          filt_base,
+    const ap_uint<32>          filt_max,
+    const ap_uint<32>          filt_minqty,
+    ap_uint<32>&               drop_count_price_high,
+    ap_uint<32>&               drop_count_below_base,
+    ap_uint<32>&               drop_count_qty
+) {
+#pragma HLS PIPELINE II=1
+    ap_uint<288> raw = in.read();
+
+    ap_uint<32> price = raw.range( 31,   0);   // payload bytes 32-35
+    ap_uint<32> qty   = raw.range(127,  96);   // payload bytes 20-23
+
+    // Evaluate all conditions combinatorially — no early returns.
+    // Mutual exclusivity is preserved by priority: price_high checked first,
+    // then below_base, then qty. At most one fires per message.
+    bool drop_high  = (price > filt_max);
+    bool drop_low   = !drop_high && (price < filt_base);
+    bool drop_qty   = !drop_high && !drop_low && (filt_minqty > 0) && (qty < filt_minqty);
+    bool drop       = drop_high || drop_low || drop_qty;
+
+    // Single counter update — HLS sees a mux, not three sequential RMWs.
+    if (drop_high) ++drop_count_price_high;
+    else if (drop_low)  ++drop_count_below_base;
+    else if (drop_qty)  ++drop_count_qty;
+
+    if (!drop) out.write(raw);
+}
+
 // parse_add_event: fan-out stage. Reads admitted payload, writes both streams.
 void parse_add_event(
     hls::stream<ap_uint<288>>& in,
@@ -92,26 +137,39 @@ void kernel(
     BookSnapshot&              snap,
     const ap_uint<16>          inv_tick,
     const ap_uint<16>          base_offset,
-    const ap_uint<64>          init_seq
+    const ap_uint<64>          init_seq,
+    const ap_uint<32>          filt_base,
+    const ap_uint<32>          filt_max,
+    const ap_uint<32>          filt_minqty
 ) {
     #pragma HLS INTERFACE ap_fifo   port=feed_a
     #pragma HLS INTERFACE ap_fifo   port=feed_b
-    #pragma HLS INTERFACE ap_memory port=snap depth=1
+    #pragma HLS INTERFACE ap_memory port=snap  depth=1
     #pragma HLS INTERFACE s_axilite port=inv_tick
     #pragma HLS INTERFACE s_axilite port=base_offset
     #pragma HLS INTERFACE s_axilite port=init_seq
+    #pragma HLS INTERFACE s_axilite port=filt_base
+    #pragma HLS INTERFACE s_axilite port=filt_max
+    #pragma HLS INTERFACE s_axilite port=filt_minqty
     #pragma HLS DATAFLOW
 
     hls::stream<ap_uint<288>> arb_out;
+    hls::stream<ap_uint<288>> filt_out;
     hls::stream<MarketEvent>  to_snapshot;
     hls::stream<MarketEvent>  to_book;
-    #pragma HLS STREAM variable=to_book depth=512   // absorbs bursts while cold-path BRAM R-M-W drains
+    #pragma HLS STREAM variable=to_book depth=512
+
+    static ap_uint<32> drop_count_price_high = 0;
+    static ap_uint<32> drop_count_below_base = 0;
+    static ap_uint<32> drop_count_qty        = 0;
 
     const ap_uint<16> inv_tick_reg    = inv_tick;
     const ap_uint<16> base_offset_reg = base_offset;
 
     arbitrate(feed_a, feed_b, arb_out);
-    parse_add_event(arb_out, to_snapshot, to_book);
+    filter_event(arb_out, filt_out, filt_base, filt_max, filt_minqty,
+                 drop_count_price_high, drop_count_below_base, drop_count_qty);
+    parse_add_event(filt_out, to_snapshot, to_book);
     update_snapshot(to_snapshot, snap);
     register_book_update(to_book, inv_tick_reg, base_offset_reg);
 }

@@ -13,6 +13,15 @@ static const ap_uint<16> INV_TICK    = 655;   // (1 << 16) / tick_size = 65536 /
 static const ap_uint<16> BASE_OFFSET = (ap_uint<16>)((1749700u * 655u) >> 16);  // = 17496
 static const ap_uint<64> INIT_SEQ    = 1;     // MOLDUDP64 sessions start at seq=1, never 0
 
+// Filter configuration scalars — passed individually as s_axilite to avoid ap_memory
+// read latency (struct ap_memory costs 1 cycle per field; scalars are combinatorial wires).
+//   filt_base   = 1749700 ($174.97) — lowest observed ASML price in dataset
+//   filt_max    = 1949700 ($194.97) — precomputed: base_price + 2000*100
+//   filt_minqty = 0 (disabled)
+static const ap_uint<32> FILT_BASE   = 1749700;
+static const ap_uint<32> FILT_MAX    = 1949700;
+static const ap_uint<32> FILT_MINQTY = 0;
+
 // msg 2: side=B  qty=500   price=1758400 ($175.84)
 static const uint8_t asml_b_175_84[36] = {
     0x41, 0x02, 0x19, 0x00, 0x00, 0x0D, 0x18, 0xC2, 0xF3, 0x63, 0xD6, 0x00,
@@ -83,7 +92,7 @@ int main() {
         hls::stream<ap_uint<352>> feed_a;
         hls::stream<ap_uint<352>> feed_b;  // empty — secondary feed idle this cycle
         feed_a.write(pack_msg(msgs[m], INIT_SEQ + m));  // seq 1..7
-        kernel(feed_a, feed_b, snap, INV_TICK, BASE_OFFSET, INIT_SEQ);
+        kernel(feed_a, feed_b, snap, INV_TICK, BASE_OFFSET, INIT_SEQ, FILT_BASE, FILT_MAX, FILT_MINQTY);
     }
 
     // Expected final snapshot after all 7 ASML messages:
