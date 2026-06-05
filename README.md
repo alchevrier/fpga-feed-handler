@@ -124,8 +124,8 @@ Extends `arbitrate` from N=2 feeds to N=4 (two venues × primary/secondary) and 
 
 | # | Step | ADR | Status | Notes |
 |---|------|-----|--------|-------|
-| 1 | Register store buffer + cold-path BRAM writer | [ADR-012](docs/adr/ADR-012-hot-path-register-store-buffer.md) | Deferred | Builds the SPSC ring and flush thread; prerequisite for step 2 |
-| 2 | Remove BRAM from hot path → II=1 | [ADR-013](docs/adr/ADR-013-bram-off-hot-path-ii-equals-1.md) | Deferred | Depends on step 1; drops kernel II from 16 to 1 (250M msg/s) |
+| 1 | Register store buffer + cold-path BRAM writer | [ADR-012](docs/adr/ADR-012-hot-path-register-store-buffer.md) | Deferred | Eviction register file not built; BRAM moved off hot path via DATAFLOW fork instead (see step 2) |
+| 2 | Remove BRAM from hot path → II=1 | [ADR-013](docs/adr/ADR-013-bram-off-hot-path-ii-equals-1.md) | **Done** | Achieved via DATAFLOW fork + depth-512 FIFO decoupling rather than store buffer; II=1 CoSim verified |
 | 3 | Early-exit event filter | [ADR-016](docs/adr/ADR-016-early-exit-event-filter.md) | **Done** | Price sanity + qty floor implemented, CoSim verified; instrument membership (LUTRAM) deferred to ADR-014 |
 | 4 | Multi-feed bus widening + per-instrument routing | [ADR-014](docs/adr/ADR-014-multi-feed-bus-widening-per-instrument-routing.md) | Deferred | N=4 feeds, LUTRAM routing table, K independent pipeline slots |
 | 5 | Cancel / Delete / Replace message types (X, D, U) | [ADR-008](docs/adr/ADR-008-add-only-scope.md) | Deferred | Prerequisite gate for step 6 |
