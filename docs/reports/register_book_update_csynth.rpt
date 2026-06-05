@@ -1,0 +1,196 @@
+
+
+================================================================
+== Vitis HLS Report for 'register_book_update'
+================================================================
+* Date:           Fri Jun  5 23:42:43 2026
+
+* Version:        2025.2 (Build 6295257 on Nov 14 2025)
+* Project:        kernel
+* Solution:       hls (Vivado IP Flow Target)
+* Product family: aartix7
+* Target device:  xa7a12t-cpg238-2I
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  4.00 ns|  2.772 ns|     1.08 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max    | min | max |   Type  |
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |       10|       10|  40.000 ns|  40.000 ns|    1|    1|      yes|
+    +---------+---------+-----------+-----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        N/A
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++-----------------+---------+----+-------+------+-----+
+|       Name      | BRAM_18K| DSP|   FF  |  LUT | URAM|
++-----------------+---------+----+-------+------+-----+
+|DSP              |        -|   -|      -|     -|    -|
+|Expression       |        -|   -|      0|    80|    -|
+|FIFO             |        -|   -|      -|     -|    -|
+|Instance         |        -|   1|    119|     1|    -|
+|Memory           |        1|   -|      0|     0|    -|
+|Multiplexer      |        -|   -|      0|    36|    -|
+|Register         |        -|   -|    378|    96|    -|
++-----------------+---------+----+-------+------+-----+
+|Total            |        1|   1|    497|   213|    0|
++-----------------+---------+----+-------+------+-----+
+|Available        |       40|  40|  16000|  8000|    0|
++-----------------+---------+----+-------+------+-----+
+|Utilization (%)  |        2|   2|      3|     2|    0|
++-----------------+---------+----+-------+------+-----+
+
++ Detail: 
+    * Instance: 
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |         Instance        |        Module       | BRAM_18K| DSP|  FF | LUT| URAM|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |mul_24s_16ns_24_5_1_U13  |mul_24s_16ns_24_5_1  |        0|   1|  119|   1|    0|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+    |Total                    |                     |        0|   1|  119|   1|    0|
+    +-------------------------+---------------------+---------+----+-----+----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    +--------------+--------------------------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |    Memory    |                      Module                      | BRAM_18K| FF| LUT| URAM| Words| Bits| Banks| W*Bits*Banks|
+    +--------------+--------------------------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |levels_qty_U  |register_book_update_levels_qty_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|   256|   32|     1|         8192|
+    +--------------+--------------------------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |Total         |                                                  |        1|  0|   0|    0|   256|   32|     1|         8192|
+    +--------------+--------------------------------------------------+---------+---+----+-----+------+-----+------+-------------+
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |             Variable Name             | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |add_ln86_fu_137_p2                     |         +|   0|  0|  39|          32|          32|
+    |idx_fu_129_p2                          |         -|   0|  0|  15|           8|           8|
+    |ap_block_pp0                           |       and|   0|  0|   2|           1|           1|
+    |ap_enable_state11_pp0_iter10_stage0    |       and|   0|  0|   2|           1|           1|
+    |ap_enable_state8_pp0_iter7_stage0      |       and|   0|  0|   2|           1|           1|
+    |ap_enable_state9_pp0_iter8_stage0      |       and|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001              |        or|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001_grp0         |        or|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001_grp1         |        or|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001_grp2         |        or|   0|  0|   2|           1|           1|
+    |ap_block_pp0_stage0_11001_grp3         |        or|   0|  0|   2|           1|           1|
+    |ap_block_state1_pp0_stage0_iter0_grp1  |        or|   0|  0|   2|           1|           1|
+    |ap_block_state1_pp0_stage0_iter0_grp2  |        or|   0|  0|   2|           1|           1|
+    |ap_block_state1_pp0_stage0_iter0_grp3  |        or|   0|  0|   2|           1|           1|
+    |ap_enable_pp0                          |       xor|   0|  0|   2|           1|           2|
+    +---------------------------------------+----------+----+---+----+------------+------------+
+    |Total                                  |          |   0|  0|  80|          53|          54|
+    +---------------------------------------+----------+----+---+----+------------+------------+
+
+    * Multiplexer: 
+    +-------------------+----+-----------+-----+-----------+
+    |        Name       | LUT| Input Size| Bits| Total Bits|
+    +-------------------+----+-----------+-----+-----------+
+    |ap_done            |   9|          2|    1|          2|
+    |base_offset_blk_n  |   9|          2|    1|          2|
+    |inv_tick_blk_n     |   9|          2|    1|          2|
+    |to_book_blk_n      |   9|          2|    1|          2|
+    +-------------------+----+-----------+-----+-----------+
+    |Total              |  36|          8|    4|          8|
+    +-------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +-------------------------------------------------+----+----+-----+-----------+
+    |                       Name                      | FF | LUT| Bits| Const Bits|
+    +-------------------------------------------------+----+----+-----+-----------+
+    |add_ln86_reg_187                                 |  32|   0|   32|          0|
+    |ap_CS_fsm                                        |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp0_done_reg        |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp1_done_reg        |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp1_done_reg_iter0  |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp2_done_reg_iter0  |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp3_done_reg        |   1|   0|    1|          0|
+    |ap_block_pp0_stage0_subdone_grp3_done_reg_iter0  |   1|   0|    1|          0|
+    |ap_done_reg                                      |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter1                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter10                         |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter2                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter3                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter4                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter5                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter6                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter7                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter8                          |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter9                          |   1|   0|    1|          0|
+    |empty_reg_146                                    |   8|   0|    8|          0|
+    |ev_price_reg_151                                 |  24|   0|   24|          0|
+    |ev_qty_reg_156                                   |  32|   0|   32|          0|
+    |idx_reg_171                                      |   8|   0|    8|          0|
+    |inv_tick_1_reg_141                               |  16|   0|   16|          0|
+    |levels_qty_addr_reg_176                          |   8|   0|    8|          0|
+    |levels_qty_load_reg_182                          |  32|   0|   32|          0|
+    |trunc_ln_reg_166                                 |   8|   0|    8|          0|
+    |empty_reg_146                                    |  64|  32|    8|          0|
+    |ev_qty_reg_156                                   |  64|  32|   32|          0|
+    |levels_qty_addr_reg_176                          |  64|  32|    8|          0|
+    +-------------------------------------------------+----+----+-----+-----------+
+    |Total                                            | 378|  96|  234|          0|
+    +-------------------------------------------------+----+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++----------------------------+-----+-----+------------+----------------------+--------------+
+|          RTL Ports         | Dir | Bits|  Protocol  |     Source Object    |    C Type    |
++----------------------------+-----+-----+------------+----------------------+--------------+
+|ap_clk                      |   in|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_rst                      |   in|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_start                    |   in|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_done                     |  out|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_continue                 |   in|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_idle                     |  out|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|ap_ready                    |  out|    1|  ap_ctrl_hs|  register_book_update|  return value|
+|base_offset_dout            |   in|   16|     ap_fifo|           base_offset|       pointer|
+|base_offset_empty_n         |   in|    1|     ap_fifo|           base_offset|       pointer|
+|base_offset_read            |  out|    1|     ap_fifo|           base_offset|       pointer|
+|base_offset_num_data_valid  |   in|    3|     ap_fifo|           base_offset|       pointer|
+|base_offset_fifo_cap        |   in|    3|     ap_fifo|           base_offset|       pointer|
+|inv_tick_dout               |   in|   16|     ap_fifo|              inv_tick|       pointer|
+|inv_tick_empty_n            |   in|    1|     ap_fifo|              inv_tick|       pointer|
+|inv_tick_read               |  out|    1|     ap_fifo|              inv_tick|       pointer|
+|inv_tick_num_data_valid     |   in|    3|     ap_fifo|              inv_tick|       pointer|
+|inv_tick_fifo_cap           |   in|    3|     ap_fifo|              inv_tick|       pointer|
+|to_book_dout                |   in|   72|     ap_fifo|               to_book|       pointer|
+|to_book_empty_n             |   in|    1|     ap_fifo|               to_book|       pointer|
+|to_book_read                |  out|    1|     ap_fifo|               to_book|       pointer|
+|to_book_num_data_valid      |   in|   10|     ap_fifo|               to_book|       pointer|
+|to_book_fifo_cap            |   in|   10|     ap_fifo|               to_book|       pointer|
++----------------------------+-----+-----+------------+----------------------+--------------+
+

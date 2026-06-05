@@ -3,7 +3,7 @@
 ================================================================
 == Vitis HLS Report for 'update_snapshot'
 ================================================================
-* Date:           Mon Jun  1 22:56:34 2026
+* Date:           Fri Jun  5 23:42:43 2026
 
 * Version:        2025.2 (Build 6295257 on Nov 14 2025)
 * Project:        kernel
@@ -80,9 +80,9 @@
     +-----------------------+----------+----+---+----+------------+------------+
     |     Variable Name     | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
     +-----------------------+----------+----+---+----+------------+------------+
-    |icmp_ln80_1_fu_118_p2  |      icmp|   0|  0|  39|          32|          32|
-    |icmp_ln80_fu_75_p2     |      icmp|   0|  0|  15|           8|           7|
-    |icmp_ln83_fu_95_p2     |      icmp|   0|  0|  39|          32|          32|
+    |icmp_ln59_1_fu_118_p2  |      icmp|   0|  0|  39|          32|          32|
+    |icmp_ln59_fu_75_p2     |      icmp|   0|  0|  15|           8|           7|
+    |icmp_ln62_fu_95_p2     |      icmp|   0|  0|  39|          32|          32|
     |ap_block_state1        |        or|   0|  0|   2|           1|           1|
     +-----------------------+----------+----+---+----+------------+------------+
     |Total                  |          |   0|  0|  95|          73|          72|
@@ -93,9 +93,9 @@
     |        Name       | LUT| Input Size| Bits| Total Bits|
     +-------------------+----+-----------+-----+-----------+
     |ap_done            |   9|          2|    1|          2|
-    |levelUpdate_blk_n  |   9|          2|    1|          2|
     |snap_o             |  13|          3|  128|        384|
     |snap_o_preg        |   9|          2|  128|        256|
+    |to_snapshot_blk_n  |   9|          2|    1|          2|
     +-------------------+----+-----------+-----+-----------+
     |Total              |  40|          9|  258|        644|
     +-------------------+----+-----------+-----+-----------+
@@ -127,13 +127,13 @@
 |ap_continue                 |   in|    1|  ap_ctrl_hs|  update_snapshot|  return value|
 |ap_idle                     |  out|    1|  ap_ctrl_hs|  update_snapshot|  return value|
 |ap_ready                    |  out|    1|  ap_ctrl_hs|  update_snapshot|  return value|
+|to_snapshot_dout            |   in|   72|     ap_fifo|      to_snapshot|       pointer|
+|to_snapshot_empty_n         |   in|    1|     ap_fifo|      to_snapshot|       pointer|
+|to_snapshot_read            |  out|    1|     ap_fifo|      to_snapshot|       pointer|
+|to_snapshot_num_data_valid  |   in|    3|     ap_fifo|      to_snapshot|       pointer|
+|to_snapshot_fifo_cap        |   in|    3|     ap_fifo|      to_snapshot|       pointer|
 |snap_i                      |   in|  128|     ap_ovld|             snap|       pointer|
 |snap_o                      |  out|  128|     ap_ovld|             snap|       pointer|
 |snap_o_ap_vld               |  out|    1|     ap_ovld|             snap|       pointer|
-|levelUpdate_dout            |   in|   72|     ap_fifo|      levelUpdate|       pointer|
-|levelUpdate_empty_n         |   in|    1|     ap_fifo|      levelUpdate|       pointer|
-|levelUpdate_read            |  out|    1|     ap_fifo|      levelUpdate|       pointer|
-|levelUpdate_num_data_valid  |   in|    3|     ap_fifo|      levelUpdate|       pointer|
-|levelUpdate_fifo_cap        |   in|    3|     ap_fifo|      levelUpdate|       pointer|
 +----------------------------+-----+-----+------------+-----------------+--------------+
 

@@ -21,11 +21,11 @@ The II=16 bottleneck is `handle_event`. As a non-pipelined stage with a 4-cycle 
 
 The RAW hazard is structural: two consecutive messages that update the same BRAM address cannot be pipelined because the second read would observe stale data from before the first write completes. This hazard cannot be resolved by pragma or scheduling — it is a property of the BRAM port model.
 
-ADR-012 introduces a register store buffer that absorbs `LevelUpdate` writes on the hot path, deferring BRAM writes to a cold path. This ADR documents the consequence: with BRAM removed from the hot path, II=1 becomes achievable across the full pipeline.
+ADR-012 introduces a 16-register eviction-based book (8 bids, 8 asks) that replaces the BRAM read-modify-write on the hot path. The register file holds the top-8 levels per side; BRAM receives write-only eviction writes when a level is displaced from the register file. This ADR documents the consequence: with BRAM reads removed from the hot path and the only remaining BRAM access being write-only, the RAW hazard is eliminated and II=1 becomes achievable across the full pipeline.
 
 ## Decision
 
-Move `handle_event` BRAM writes to the cold path store buffer writer (ADR-012). The hot path `handle_event` equivalent becomes a single register write into the store buffer head — one cycle, pipelineable, no RAW hazard possible (the store buffer head is a ring; consecutive messages write to consecutive addresses by construction).
+Replace `handle_event` with a `register_book_update` stage (ADR-012). The hot path becomes: scan the 8-slot register file for a price match (8-wide comparator tree, combinatorial), update qty in-place on hit, or on miss find the worst slot (7-comparator tree, combinatorial), evict it to BRAM (write-only), and insert the new level. No BRAM read occurs on the hot path. Write-only BRAM access has no RAW hazard — consecutive evictions at different addresses are independent.
 
 Revised hot path:
 
@@ -37,7 +37,7 @@ Revised hot path:
 | `route_by_type`        | 1      | II=1      | unchanged                                               |
 | `parse_add_event`      | 1–2    | II=1      | field extraction only (price, qty, side); DSP multiply  |
 |                        |        |           | moves to cold path — idx not needed on the hot path     |
-| `store_buffer_write`   | 1      | II=1      | register write, no BRAM, no RAW hazard                  |
+| `register_book_update` | 7–8    | II=1      | comparator trees (combinatorial) + DSP for eviction BRAM addr; write-only BRAM, no RAW hazard |
 | `update_snapshot`      | 1      | II=1      | unchanged                                               |
 
 With all stages pipelined at II=1, the kernel II drops from 16 to 1. A new message can be admitted every clock cycle. Throughput: 250M messages/second at 250 MHz — matching the theoretical maximum of the `ap_fifo` interface.
@@ -45,7 +45,7 @@ With all stages pipelined at II=1, the kernel II drops from 16 to 1. A new messa
 End-to-end latency is not reduced by II improvement (latency is set by stage depths and DATAFLOW overlap), but throughput is no longer the bottleneck. For burst market data — multiple messages arriving in consecutive cycles — the improvement is the difference between processing them at 64 ns intervals vs 4 ns intervals.
 
 **Expected latency post-refactor:**
-With the DSP multiply and BRAM read-modify-write both removed from the hot path, the remaining stages contain no significant compute: field extraction (shifts and masks), register lookups, and register writes. The latency floor is no longer set by computation — it is set by the `ap_fifo` stream handshake: 1 cycle per stage. Each stage costs exactly 1 cycle to read from its input stream, with the single exception of `arbitrate` which retains its 3-cycle floor from the 64-bit sequence counter (compare latency=1 + add latency=1 + FIFO read=1). Theoretical hot-path latency: `(N_stages - 1) × 1 + 3` = ~9 cycles for the 7-stage pipeline. Synthesis is required to confirm — DATAFLOW scheduling and routing may add register stages — but the compute bottleneck is gone. The latency is now a structural property of the pipeline depth, not of any algorithm running inside it.
+The BRAM read-modify-write (4 cycles) is gone. `register_book_update` introduces comparator trees (combinatorial) and a DSP multiply for the eviction BRAM address (7 cycles); this DSP latency is the new stage depth, but it is fully hidden by II=1 — DATAFLOW overlaps its execution with the next stage. The `parse_add_event` hot path remains field-extract only (1–2 cycles); the DSP fires only on eviction within `register_book_update`, not on every message. Theoretical hot-path latency for the 7-stage pipeline: ~9–10 cycles at 250 MHz ≈ 36–40 ns. Synthesis is required to confirm — the register file dependency (consecutive messages reading and writing `bids[8]`/`asks[8]`) requires complete array partitioning and HLS forwarding resolution to achieve II=1. The compute bottleneck is eliminated; the remaining latency is a structural property of pipeline depth.
 
 ## Consequences
 
@@ -56,10 +56,10 @@ II=1 theoretical maximum. Burst market data processed without pipeline stall. Th
 The refactor adds three new pipeline stages (`protocol_dispatch`, `filter_event`, `route_by_type`) and yet reduces end-to-end latency vs the current 13-cycle baseline. The reason: the DSP multiply (7 cycles) and BRAM read-modify-write (4 cycles) evicted from the hot path save 11 cycles; the three new 1-cycle stages cost 3. Net: −8 cycles. More features, lower latency — a direct consequence of moving compute off the hot path rather than optimising what is already there.
 
 **BRAM depth accuracy:**
-As documented in ADR-012, full depth in BRAM reflects market state as of the last flush. The matching engine consuming `BookSnapshot` registers is unaffected — it never reads BRAM directly.
+With the eviction model (ADR-012), BRAM is written immediately on each eviction — there is no flush interval, no staleness window. BRAM always reflects the state of every price level that has ever left the top-8 register file. The matching engine consuming `BookSnapshot` registers is unaffected — it reads only from the register file, never from BRAM.
 
 **Verification:**
-The existing CoSim testbench validates `BookSnapshot` correctness. It does not validate BRAM depth. A new testbench or testbench extension is required to validate cold-path BRAM contents after flush.
+The existing CoSim testbench validates `BookSnapshot` correctness. It does not validate BRAM depth. A new testbench or testbench extension is required to validate BRAM contents after eviction — specifically, that evicted levels are written to the correct BRAM address and that the register file correctly tracks the top-8 levels after each eviction.
 
 ## Alternatives Considered
 

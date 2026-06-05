@@ -1,73 +1,107 @@
-# ADR-012 — Hot-Path Write Coalescing: Register Store Buffer
+# ADR-012 — Hot-Path Register Book: Eviction-Based Top-N Register File
 
 ## Status
-Proposed — Deferred (not yet implemented)
+Proposed — Deferred (partially superseded by implementation; see Context)
 
 ## Date
 2026-06-04
+Updated: 2026-06-05
 
 ## Context
 
-The current `handle_event` stage maintains full order book depth in a static BRAM array. Every admitted message triggers a BRAM read-modify-write: read the existing level, add the new quantity, write back. This is 4 cycles, non-pipelined, and sits on the hot path between `arbitrate` and `update_snapshot`.
+The original `handle_event` stage maintained full order book depth in a static BRAM array. Every admitted message triggered a BRAM read-modify-write: read the existing level, add the new quantity, write back. This was 4 cycles, non-pipelined, and sat on the hot path. The RAW (read-after-write) hazard — the next message cannot begin its BRAM read until the previous write completes — was the sole cause of the kernel's II=16.
 
-The matching engine consuming the output of this kernel does not need full order book depth in real time. It needs the best bid and best ask — the `BookSnapshot` registers that `update_snapshot` maintains. Full depth (all price levels and quantities) is useful for toxicity analysis and risk monitoring, but on a timescale of hundreds of thousands of cycles, not per-message.
+The matching engine does not need full depth in real time. It needs the top levels — best bid, best ask, and a shallow view of the near-touch. A risk engine or spread-capture strategy makes decisions on the top of book, not on a price level 200 ticks away.
 
-More fundamentally, a matching engine is delta-driven: it reacts to each `LevelUpdate` event as it arrives — price, quantity, side, and action — and maintains its own internal state from the stream of deltas. It does not poll a depth snapshot to decide whether to generate an order; it acts on the incremental change. This means the hot path obligation is to deliver the delta with minimum latency, not to guarantee that a separately maintained full-depth BRAM is current at the moment the matching engine reads it.
+**What was actually implemented (2026-06-05):**
 
-Cold-path consumers (toxicity monitor, risk system) can similarly read directly from the register store buffer — the most recent N entries are always in registers, accessible without BRAM arbitration. This makes the store buffer the live data source for all consumers, hot and cold alike. BRAM is then reduced to a pure persistence artifact: end-of-day book state reconstruction and crash recovery. It is written once per flush interval not because any running process needs it, but so the state is not lost if the kernel is reset.
+`handle_event` was removed entirely and replaced by a DATAFLOW fork architecture:
 
-This creates an asymmetry: the hot path pays a 4-cycle BRAM penalty every message to maintain data that the downstream consumer reads on a cold timescale.
+- `parse_add_event` fans out to two parallel streams: `to_snapshot` and `to_book`.
+- `update_snapshot` (hot path): reads `to_snapshot`, maintains a single running best bid and best ask via a combinatorial max/min compare against the current `snap` register. 0 cycles latency, II=1, 3.640 ns — purely combinatorial. No register file scan, no BRAM access.
+- `register_book_update` (parallel path): reads `to_book` (depth=512 FIFO, absorbs burst back-pressure), computes the BRAM address via `idx = (price × inv_tick) >> 16 - base_offset`, writes price and accumulates qty. 10 cycles latency, II=1 via `#pragma HLS DEPENDENCE variable=levels inter false`.
 
-**Market self-invalidation property:**
-Market data naturally chases stale quotes. A price level that was quoted 250,000 cycles ago will either have been traded through, cancelled, or revised by new messages before any risk system needs to read it. This means the store buffer does not require LRU eviction logic — incoming messages overwrite stale entries by natural market activity. The buffer does not need to decide what to evict; the market decides for it.
+The FIFO decoupling — not register eviction — is what removes BRAM from the hot path. `update_snapshot` never waits for `register_book_update`. Both run concurrently under `#pragma HLS DATAFLOW`. The kernel achieves II=1 (250M msg/s theoretical throughput), and the hot path latency is 2 cycles (8 ns at 250 MHz): arbitrate + parse_add_event + update_snapshot. CoSim verified PASS.
+
+The eviction-based 16-register file described in this ADR remains a valid further enhancement — it would give the matching engine a ranked near-touch view (top-8 per side) rather than just best bid/ask. It is deferred until the current pipeline is extended to cancel/delete/replace message types, which are the prerequisite for register file promotion logic.
 
 ## Decision
 
-Replace the single-stage BRAM read-modify-write with a two-path architecture:
+Replace the single-stage BRAM read-modify-write with a **16-register file** and an eviction-based update policy.
 
-**Hot path — register store buffer:**
-A small SPSC ring of registers (4–8 entries, sized to absorb burst arrivals) sits between `parse_add_event` and `update_snapshot`. Each admitted message writes its `LevelUpdate` (price, qty, side) into the head register. No BRAM access on the hot path. The snapshot update logic reads directly from the head register — one register read, one compare, one conditional write. All operations are single-cycle, pipelineable to II=1.
+**Structure:**
+- `bids[8]`: 8 flip-flop registers, each holding `{price: ap_uint<32>, qty: ap_uint<32>}`. Best bid = max(bids[*].price).
+- `asks[8]`: 8 flip-flop registers, each holding `{price: ap_uint<32>, qty: ap_uint<32>}`. Best ask = min(asks[*].price).
 
-**Cold path — BRAM writer:**
-A separate process drains the store buffer tail to BRAM on either of two conditions, whichever fires first: M admitted messages (default M=1024, configurable via `s_axilite`) or T cycles elapsed since the last flush (default T=250,000,000 cycles = 1 s at 250 MHz, configurable via `s_axilite`). The dual trigger is necessary: the message-count trigger ensures each flush during active trading reflects a meaningful quantum of market activity rather than firing mid-burst; the cycle watchdog ensures BRAM is flushed during quiet periods where message rates may be near zero and the count threshold would never be reached — a mid-day trading halt, a news-driven circuit breaker, or a liquidity gap can silence a symbol for minutes or longer, and a kernel reset during that window would lose all order book state accumulated since the last message-count flush, with no recovery path. If the same price level appears multiple times in the buffer before the flush, the latest entry overwrites earlier ones — no comparison logic, just positional overwrite. The cold path runs asynchronously and never blocks the hot path.
+The register file is the live order book for all hot-path consumers. The matching engine reads from these registers directly — it never touches BRAM during the trading session.
+
+**Update logic (per Add Order message, side=ASK, price P, qty Q):**
+
+1. **Price match scan** — compare P against all 8 ask slot prices in parallel (8-wide comparator tree, 3 levels deep, fully combinatorial). If a match is found at index `i`, increment `asks[i].qty += Q`. Done — no BRAM access.
+
+2. **Worst slot** — find the slot with the highest ask price (max of 8, same 7-comparator tree pattern). Call it `worst_price`, `worst_idx`.
+
+3. **In-range** — if `P < worst_price`, the new level belongs in the top-8. Evict `asks[worst_idx]` to BRAM (single BRAM write, address computed via `idx = (worst_price - base_price) * inv_tick`), then insert `{P, Q}` at `worst_idx`.
+
+4. **Out-of-range** — if `P >= worst_price`, the new level is outside the top-8. Write `{P, Q}` directly to BRAM. Register file unchanged.
+
+Bids mirror asks: worst bid = min(bids[*].price). In-range insert evicts the lowest-priced bid slot.
+
+**Critical path analysis:**
+
+| Operation | Logic | Cycles |
+|-----------|-------|--------|
+| Price match scan | 8 comparators, 3-level tree | combinatorial |
+| Worst slot find | 7 comparators, 3-level tree | combinatorial |
+| Register write (update or insert) | 1 FF write | 1 |
+| BRAM write (eviction or out-of-range) | 1 write port, no read | 1 |
+
+BRAM write-only has no RAW hazard — consecutive evictions at different addresses are independent. The pipeline achieves II=1.
+
+**BRAM role:**
+BRAM holds price levels outside the top-8 per side — the cold depth record. It is written on eviction (when a level exits the register file) or on out-of-range arrival (when a level is too far from the touch to warrant a register slot). No BRAM read occurs on the hot path. BRAM is a persistence artifact: end-of-day reconstruction and crash recovery. Any downstream system needing full historical depth reads BRAM post-session.
 
 ```
 Hot path:
-  arbitrate → parse_add_event → [store buffer head] → update_snapshot
-                                        ↓ (async, every N cycles)
-Cold path:
-  [store buffer tail] → BRAM writer → depth BRAM
+  parse_add_event
+       │ MarketEvent
+       ▼
+  register_book_update        ← 16 flip-flop registers (8 bid, 8 ask)
+       │ (eviction on in-range miss)        │ (out-of-range)
+       ▼                                    ▼
+  BRAM write (evicted level)    BRAM write (far-touch level)
+       │
+  update_snapshot             ← reads best bid/ask from register file
 ```
-
-The store buffer is implemented as a small ring of flip-flop registers (not BRAM, not LUTRAM) to guarantee single-cycle read/write access with no address computation on the hot path.
 
 ## Consequences
 
 **Hot path latency:**
-BRAM access and address computation are removed from the hot path. See ADR-013 for the measured II impact.
+BRAM read removed entirely from the hot path. All in-path logic is combinatorial (comparator trees) plus one register write. See ADR-013 for II impact.
 
-**Depth accuracy and consumer model:**
-The store buffer is the live data source for all consumers. The matching engine reacts to the delta stream; cold-path consumers (toxicity monitor, risk system) read the most recent register entries directly — no BRAM arbitration, no staleness concern within the buffer window. A risk engine in particular cannot tolerate a BRAM read round-trip before firing a cancel: the cancellation decision must be taken on the delta that triggered the breach, not after polling a stale depth view. BRAM is a persistence layer only: end-of-day book state reconstruction and crash recovery. Any downstream system that needs full historical depth reads BRAM post-session, not during the trading day.
+**Best bid/ask accuracy:**
+The register file always contains the top-8 levels per side. `update_snapshot` reads `min(asks[*].price)` and `max(bids[*].price)` — two more 7-comparator trees, trivially parallel. Best bid and best ask are always register-resident and always reflect the most recent admitted message.
 
-**Burst absorption:**
-The store buffer absorbs message bursts without blocking `parse_add_event`. If the buffer fills (burst exceeds buffer depth before the cold path drains it), the oldest entry is overwritten — consistent with the market self-invalidation property. Overflow is not an error; it is expected market behaviour.
+**Depth accuracy:**
+Levels outside the top-8 are in BRAM. BRAM is written immediately on eviction — there is no staleness window between the register file and BRAM. The full book is consistent at all times: registers hold the top-8, BRAM holds the rest.
 
-**Flush trigger:**
-Hybrid: message-count primary (M=1024, configurable), cycle watchdog fallback (T=250M cycles = 1 s at 250 MHz, configurable). During active trading the message-count trigger fires first; during quiet periods (pre-market, post-close) the watchdog ensures BRAM is flushed at least once per second regardless of message rate. Both thresholds are written via `s_axilite` at startup. The cold path is not on the hot path critical section and its latency is irrelevant to the matching engine.
-
-**ML-driven configuration lifecycle:**
-The relevance of BRAM depth data is not fixed — a symbol that was informative on Monday may be irrelevant noise on Tuesday. A post-session ML batch job can analyse the captured BRAM data overnight (which price levels were actually traded through, which deltas preceded fills, which depth snapshots correlated with toxicity signals) and produce updated flush thresholds per instrument for the next session: higher M for liquid symbols that self-invalidate quickly, lower M or shorter T for illiquid symbols where each message is more persistent. These thresholds are written to `s_axilite` registers at session open — same bitstream, learned configuration. The FPGA hardware is invariant; only the operational parameters adapt.
+**No flush trigger, no watchdog:**
+The SPSC ring, message-count flush threshold, and cycle watchdog from the previous design are eliminated. BRAM is written exactly when a level leaves the register file — no batching, no timer, no configuration parameter. The cold path is reduced to a single BRAM write port.
 
 **Resource impact:**
-8-entry register buffer at `LevelUpdate` width (72 bits: 32 price + 32 qty + 8 side) = 576 flip-flops. Negligible on xa7a12t.
+16 registers × 64 bits = 1,024 flip-flops. Four 7-comparator trees (match scan bid, match scan ask, worst-bid find, worst-ask find) ≈ 112 LUTs. Negligible on xa7a12t.
+
+**Add-Order only (this phase):**
+Qty updates for existing levels (same price, new qty from a modify/cancel message) require the price-match scan path. The eviction path handles inserts only. Cancel (`X`), Delete (`D`), and Replace (`U`) message types — which reduce or remove qty at a price level — are deferred to roadmap step 5. When a cancelled level's qty reaches zero it must be cleared from the register file and a cold-depth level promoted into the vacancy; that promotion logic is out of scope here.
 
 ## Alternatives Considered
 
-**LRU eviction from store buffer:**
-Requires N-wide timestamp comparators to find the least recently used entry. Expensive in LUTs, on the critical path, and unnecessary given the market self-invalidation property. Rejected.
+**SPSC ring buffer with periodic flush (previous design):**
+Defers BRAM writes to a cold-path thread triggered by message count or cycle watchdog. Adds flush threshold configuration, staleness window, and ML calibration of M and T. The eviction model is strictly simpler: BRAM writes are triggered by natural market events (levels leaving the top-8), not by timers or counts. Rejected in favour of eviction.
 
-**Flush on pressure (when buffer full) instead of fixed message count:**
-More principled — the cold path drains exactly when needed. Adds a full/empty comparison on the hot path (one extra cycle of combinatorial logic). Viable alternative; message-count triggering chosen for simplicity of the first implementation. Can be revisited.
+**Full BRAM with pipeline forwarding to resolve RAW hazard:**
+Add a forwarding register that captures the in-flight BRAM write value and feeds it back to the read stage if the next message targets the same address. Eliminates the RAW hazard without moving BRAM off the hot path. More complex than eviction (requires address comparison on every cycle) and still pays 2-cycle BRAM read latency unconditionally. Rejected.
 
-**Keep BRAM on hot path, reduce latency by pipelining the read-modify-write:**
-BRAM read latency is fixed at 2 cycles on 7-series. Pipelining does not remove the latency, it hides it — but only if II=1 is achievable with back-to-back messages updating different addresses. Same-address updates create a RAW hazard that the scheduler cannot resolve without forwarding logic. Rejected — store buffer is cleaner.
+**Larger register file (N > 8):**
+Wider comparator trees, more flip-flops, longer combinatorial depth. 8 levels covers the near-touch adequately for spread-capture and risk monitoring. Can be changed at compile time — N is a template parameter.
+
