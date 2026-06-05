@@ -56,37 +56,31 @@ An FPGA removes all three sources:
                        │ per-type hls::stream<ap_uint<288>>
                        ▼
        ┌─────────────────────────────────┐
-       │       parse_add_event           │  7 cycles, II=1        (Add Order only)
-       │  idx = (price − base)×inv_tick  │  DSP multiply; depth hidden by II=1
+       │       parse_add_event           │  1–2 cycles, II=1      (Add Order only)
+       │  field extract only             │  DSP multiply moves to cold path (ADR-012)
        │  parse_cancel/delete/replace    │  separate functions, different field
        │  added in roadmap step 5        │  layouts and arithmetic per type
        └───────────────┬─────────────────┘
                        │ hls::stream<MarketEvent>
-             ┌─────────┴─────────────┐
-             ▼                       ▼
-  ┌──────────────────────┐  ┌─────────────────────────┐
-  │  store_buffer_write  │  │    toxicity_monitor     │  [ADR-015]
-  │  1 cycle, II=1       │  │  add/cancel ratio per   │
-  │  register ring head  │  │  instrument per window  │
-  │  [ADR-012, ADR-013]  │  └────────────┬────────────┘
-  └──────────┬───────────┘               │
-             │                    ToxicitySnapshot
-             ▼                    (s_axilite readable)
-  ┌──────────────────────┐
-  │    update_snapshot   │  1 cycle, II=1
-  │    register write    │  best bid/ask
-  └──────────┬───────────┘
-             │
-       BookSnapshot
-     (UltraFast registers,
-      clock-edge atomic)
+        ┌──────────────┼──────────────────────┐
+        ▼              ▼                       ▼
+  ┌───────────┐  ┌──────────────────────┐  ┌─────────────────────────┐
+  │  update_  │  │  store_buffer_write  │  │    toxicity_monitor     │  [ADR-015]
+  │  snapshot │  │  1 cycle, II=1       │  │  add/cancel ratio per   │
+  │  1 cycle  │  │  register ring head  │  │  instrument per window  │
+  │  II=1     │  │  [ADR-012, ADR-013]  │  └────────────┬────────────┘
+  └─────┬─────┘  └──────────────────────┘               │
+        │                                         ToxicitySnapshot
+  BookSnapshot                                  (s_axilite readable)
+  (UltraFast registers,
+   clock-edge atomic)
 
   Cold path [ADR-012]:
     store buffer ──▶ BRAM writer ──▶ AOS BRAM  (full order book depth)
     flushed every 250K cycles  (1 ms @ 250 MHz, configurable via s_axilite)
 ```
 
-**Target latency (intended architecture, pre-synthesis estimate):** ~11 cycles @ 250 MHz = ~44 ns. The DSP multiply in `parse_add_event` costs 7 cycles of pipeline depth but is fully hidden by II=1 — a new message enters every cycle while previous messages flow through the DSP stages. With all stages at II=1, a burst of N messages is processed in N cycles regardless of burst length.
+**Target latency (intended architecture, pre-synthesis estimate):** ~9–10 cycles @ 250 MHz = ~36–40 ns. With the store buffer in place (ADR-012), the DSP multiply moves to the cold path — `parse_add_event` becomes a field-extract-only stage at 1–2 cycles. Removing the 7-cycle DSP depth and the 4-cycle BRAM RAW stall nets −8 cycles versus the current HEAD, despite adding three new 1-cycle stages. With all stages at II=1, a burst of N messages is processed in N cycles regardless of burst length.
 
 ### Key design decisions
 
