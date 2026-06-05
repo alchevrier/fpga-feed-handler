@@ -1,7 +1,10 @@
 # ADR-016 — Early-Exit Event Filter: Discard Irrelevant or Anomalous Messages Before the Pipeline
 
 ## Status
-Proposed — Deferred
+Accepted — Partially implemented (2026-06-06)
+
+Price sanity (upper + lower bound) and quantity floor implemented in `filter_event`, CoSim verified.
+Instrument membership check (ADR-014 LUTRAM routing table) deferred — depends on multi-instrument routing.
 
 ## Date
 2026-06-04
